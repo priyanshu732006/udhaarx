@@ -100,28 +100,28 @@ export default function ShopkeeperDashboard() {
             </CardHeader>
             <CardContent>
               {shopTransactions.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Customer Name</TableHead>
-                      <TableHead>Mobile</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Customer ID</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {shopTransactions.map((tx: Transaction) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="font-medium">{tx.customerName}</TableCell>
-                        <TableCell>{tx.customerMobile}</TableCell>
-                        <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{tx.customerId}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="overflow-x-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Customer Name</TableHead>
+                        <TableHead>Mobile</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {shopTransactions.map((tx: Transaction) => (
+                        <TableRow key={tx.id}>
+                            <TableCell className="font-medium">{tx.customerName}</TableCell>
+                            <TableCell>{tx.customerMobile}</TableCell>
+                            <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>No transactions yet.</p>
