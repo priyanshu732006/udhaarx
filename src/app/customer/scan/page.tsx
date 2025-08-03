@@ -38,8 +38,8 @@ export default function ScanPage() {
     try {
       // Basic validation: Check if it's a JSON object.
       const parsedData = JSON.parse(decodedText);
-      if (typeof parsedData !== 'object' || parsedData === null) {
-          throw new Error("QR code does not contain a valid object.");
+      if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
+          throw new Error("QR code does not contain valid shop data.");
       }
       setScanMessage('QR Code detected! Redirecting...');
       const encodedShopData = encodeURIComponent(decodedText);
@@ -62,6 +62,7 @@ export default function ScanPage() {
   
   const onScanFailure = useCallback((error: Html5QrcodeError) => {
     // This is called frequently. We can add logic here if needed, but for now, we'll ignore it.
+    // e.g. console.log(error)
   }, []);
 
   const startScanner = useCallback(() => {
@@ -85,22 +86,18 @@ export default function ScanPage() {
       onScanFailure
     ).catch(err => {
       console.error("Error starting scanner:", err);
-      setHasCameraPermission(false);
-      toast({
-          variant: 'destructive',
-          title: 'Scanner Error',
-          description: 'Could not start the QR code scanner. Please refresh and try again.',
-      });
+      // Let the permission handler manage the state and toast.
     });
-  }, [onScanSuccess, onScanFailure, toast]);
+  }, [onScanSuccess, onScanFailure]);
 
   // Initialize and start the scanner
   useEffect(() => {
-    if (isLoading || !user || typeof window === 'undefined' || !scannerContainerRef.current) {
+    if (isLoading || !user || typeof window === 'undefined') {
       return;
     }
 
     if (!qrScannerRef.current) {
+        // The `false` flag is important: verbose=false
         qrScannerRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
     }
     const html5QrCode = qrScannerRef.current;
@@ -140,7 +137,10 @@ export default function ScanPage() {
         }
     };
     
-    requestCameraAndStart();
+    // Only run if the scanner element is in the DOM
+    if (scannerContainerRef.current) {
+        requestCameraAndStart();
+    }
 
     // Cleanup on component unmount
     return () => {
@@ -148,7 +148,8 @@ export default function ScanPage() {
         html5QrCode.stop().catch(error => console.info("QR scanner failed to stop on unmount.", error));
       }
     };
-  }, [user, isLoading, startScanner, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading]);
 
   if (isLoading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
@@ -165,8 +166,8 @@ export default function ScanPage() {
           <CardDescription className="text-gray-300">{scanMessage}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div ref={scannerContainerRef} className="w-full rounded-lg overflow-hidden aspect-square bg-gray-800 flex items-center justify-center">
-            <div id={QR_SCANNER_ID} className="w-full h-full" />
+          <div className="w-full rounded-lg overflow-hidden aspect-square bg-gray-800 flex items-center justify-center">
+            <div id={QR_SCANNER_ID} ref={scannerContainerRef} className="w-full h-full" />
             {hasCameraPermission === null && <p className="text-gray-400 -mt-12">Initializing camera...</p> }
           </div>
            {hasCameraPermission === false && (
