@@ -141,7 +141,7 @@ export default function ConfirmPage() {
           <div className="space-y-4 text-sm">
             <div className="flex justify-between items-center">
                 <span className="text-muted-foreground flex items-center gap-2"><User size={16}/> From</span>
-                <span className="font-semibold">{user.name}</span>
+                <span className="font-semibold">{user.name} ({user.mobile})</span>
             </div>
             <div className="flex justify-between items-center">
                 <span className="text-muted-foreground flex items-center gap-2"><Store size={16}/> To</span>
