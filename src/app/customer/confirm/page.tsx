@@ -46,16 +46,22 @@ export default function ConfirmPage() {
   const handleConfirm = async () => {
     if (user && shop && amount) {
       setIsSubmitting(true);
-      await addTransaction({
-        customerId: user.id,
-        customerName: user.name,
-        customerMobile: user.mobile || 'N/A',
-        shopId: shop.id,
-        shopName: shop.name,
-        amount: amount,
-      });
-      setIsSubmitting(false);
-      setIsConfirmed(true);
+      try {
+        await addTransaction({
+          customerId: user.id,
+          customerName: user.name,
+          customerMobile: user.mobile || 'N/A',
+          shopId: shop.id,
+          shopName: shop.name,
+          amount: amount,
+        });
+        setIsConfirmed(true);
+      } catch (error) {
+        console.error("Failed to add transaction", error);
+        // Optionally show a toast message on error
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
