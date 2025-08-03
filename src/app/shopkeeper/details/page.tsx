@@ -16,7 +16,7 @@ export default function ShopkeeperDetailsPage() {
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && appContextUser && !isSigningIn) {
+    if (!isLoading && appContextUser && appContextUser.address !== undefined && !isSigningIn) {
       router.push('/shopkeeper/dashboard');
     }
   }, [isLoading, appContextUser, isSigningIn, router]);
@@ -32,7 +32,7 @@ export default function ShopkeeperDetailsPage() {
         id: user.uid,
         name: user.displayName || 'Shopkeeper',
         email: user.email,
-        address: '' // This can be collected in a subsequent step if needed
+        address: 'Your Shop Address' // Placeholder address
       };
       setUser(shopkeeperData);
       setRole('shopkeeper');
@@ -43,7 +43,7 @@ export default function ShopkeeperDetailsPage() {
     }
   };
   
-  if (isLoading || (appContextUser && !isSigningIn)) {
+  if (isLoading || (appContextUser && appContextUser.address !== undefined && !isSigningIn)) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   }
 
