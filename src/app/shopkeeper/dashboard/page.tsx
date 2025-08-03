@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { QrCode, LogOut, Download } from 'lucide-react';
+import { auth } from '@/lib/firebase';
 
 export default function ShopkeeperDashboard() {
   const { user, transactions, isLoading, setRole, setUser } = useAppContext();
@@ -24,11 +25,9 @@ export default function ShopkeeperDashboard() {
     }
   }, [user, isLoading, router]);
 
-  const handleLogout = () => {
-    setRole(null);
-    setUser(null);
-    localStorage.removeItem('udhaarx-role');
-    localStorage.removeItem('udhaarx-user');
+  const handleLogout = async () => {
+    await auth.signOut();
+    // AppContext will handle cleanup
     router.push('/');
   };
 
@@ -100,6 +99,7 @@ export default function ShopkeeperDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Customer Name</TableHead>
+                      <TableHead>Customer ID</TableHead>
                       <TableHead>Mobile</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
@@ -109,6 +109,7 @@ export default function ShopkeeperDashboard() {
                     {shopTransactions.map((tx: Transaction) => (
                       <TableRow key={tx.id}>
                         <TableCell className="font-medium">{tx.customerName}</TableCell>
+                        <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
                         <TableCell className="font-mono text-xs">{tx.customerMobile}</TableCell>
                         <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
