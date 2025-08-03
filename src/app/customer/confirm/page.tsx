@@ -57,7 +57,7 @@ export default function ConfirmPage() {
     addTransaction({
       customerId: user.id,
       customerName: user.name,
-      customerMobile: user.mobile || 'N/A', // Reverting this part, but it's okay for now.
+      customerMobile: user.mobile || 'N/A',
       shopId: shop.id,
       shopName: shop.name,
       amount: amount,
