@@ -97,9 +97,10 @@ export default function ScanPage() {
             setHasCameraPermission(true);
             startScanner();
         } catch (err: any) {
-            console.error("Camera permission error:", err.name);
+            console.error("Camera permission error:", err);
             setHasCameraPermission(false);
-            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            const errName = err ? err.name : 'UnknownError';
+            if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
                 toast({
                     variant: 'destructive',
                     title: 'Camera Access Denied',
@@ -110,7 +111,7 @@ export default function ScanPage() {
                  toast({
                     variant: 'destructive',
                     title: 'Camera Error',
-                    description: `Could not initialize camera. ${err.message}`,
+                    description: `Could not initialize camera. ${err.message || 'Please ensure you have a camera connected.'}`,
                     duration: 5000,
                 });
             }
