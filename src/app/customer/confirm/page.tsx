@@ -63,6 +63,8 @@ export default function ConfirmPage() {
       amount: amount,
     }).then(() => {
       setIsConfirmed(true);
+      // This was the missing piece. We must also set isSubmitting to false on success.
+      setIsSubmitting(false);
     }).catch(error => {
       console.error("Failed to add transaction", error);
       toast({
@@ -70,8 +72,7 @@ export default function ConfirmPage() {
         title: "Transaction Failed",
         description: "Could not save your udhaar. Please try again.",
       });
-    }).finally(() => {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Also ensure loading stops on error.
     });
   };
   
