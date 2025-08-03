@@ -54,6 +54,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
   }, []);
 
+  // Effect to listen for changes in localStorage from other tabs
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'udhaarx-transactions') {
+        loadTransactions();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadTransactions]);
+
+
   useEffect(() => {
     if (typeof window === 'undefined' || !auth) {
         setIsLoading(false);
@@ -70,13 +86,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (storedUser && storedUser.id === currentUser.uid) {
             setUserState(storedUser);
         } else {
-            const newUser: User = {
+            // This case might be hit if a user is authenticated but their details aren't in localStorage.
+            // We should probably guide them to the details page. For now, we create a minimal user.
+             const newUser: User = {
                 id: currentUser.uid,
-                name: currentUser.displayName || 'New User',
+                name: currentUser.displayName || 'Anonymous',
                 email: currentUser.email
             };
-            setUserState(newUser);
-            localStorage.setItem('udhaarx-user', JSON.stringify(newUser));
+             setUserState(newUser);
         }
       } else {
         setUserState(null);
@@ -106,12 +123,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>) => {
+    const currentTransactions = JSON.parse(localStorage.getItem('udhaarx-transactions') || '[]');
     const newTransaction: Transaction = {
       ...transaction,
       id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       date: new Date().toISOString(),
     };
-    const updatedTransactions = [...transactions, newTransaction];
+    const updatedTransactions = [...currentTransactions, newTransaction];
     setTransactions(updatedTransactions);
     localStorage.setItem('udhaarx-transactions', JSON.stringify(updatedTransactions));
   };
