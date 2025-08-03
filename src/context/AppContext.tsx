@@ -31,7 +31,7 @@ type AppContextType = {
   user: User;
   setUser: (user: User) => Promise<void>;
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<any>;
   isLoading: boolean;
   firebaseUser: FirebaseUser | null;
 };
@@ -157,14 +157,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
- const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>): Promise<void> => {
+ const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
     if (!db) {
       console.error("Firestore not initialized");
       throw new Error("Firestore not initialized");
     }
     try {
-      // The 'return' here is crucial for the promise chain on the confirm page.
-      await addDoc(collection(db, 'transactions'), {
+      return addDoc(collection(db, 'transactions'), {
         ...transaction,
         date: Timestamp.now(), 
       });
