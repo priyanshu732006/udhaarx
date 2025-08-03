@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5Qrcode, Html5QrcodeError, Html5QrcodeResult } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeError, Html5QrcodeResult, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Camera, BookOpenCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/context/AppContext';
@@ -19,7 +19,9 @@ export default function ScanPage() {
   const { user, isLoading } = useAppContext();
   const [scanMessage, setScanMessage] = useState('Position QR code in the frame...');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const qrScannerRef = useRef<Html5Qrcode | null>(null);
+  
+  // Use a ref for the scanner instance to avoid re-renders triggering effects
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -28,67 +30,66 @@ export default function ScanPage() {
   }, [user, isLoading, router]);
 
   const onScanSuccess = useCallback((decodedText: string, result: Html5QrcodeResult) => {
-    if (qrScannerRef.current?.isScanning) {
-        qrScannerRef.current.stop().catch(err => console.error("Failed to stop QR scanner", err));
-    }
-    try {
-      const parsedData = JSON.parse(decodedText);
-      if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
-          throw new Error("QR code does not contain valid shop data.");
-      }
-      setScanMessage('QR Code detected! Redirecting...');
-      const encodedShopData = encodeURIComponent(decodedText);
-      router.push(`/customer/pay?shop=${encodedShopData}`);
-    } catch (e) {
-      console.error("Invalid QR code format", e);
-      toast({
-        variant: "destructive",
-        title: "Invalid QR Code",
-        description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
-      });
-      
-      setTimeout(() => {
-         if (qrScannerRef.current && !qrScannerRef.current.isScanning) {
-            startScanner();
-         }
-      }, 2000);
+    // Stop the scanner and then process the result
+    if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
+      html5QrCodeRef.current.stop().then(() => {
+        try {
+          const parsedData = JSON.parse(decodedText);
+          if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
+              throw new Error("QR code does not contain valid shop data.");
+          }
+          setScanMessage('QR Code detected! Redirecting...');
+          const encodedShopData = encodeURIComponent(decodedText);
+          router.push(`/customer/pay?shop=${encodedShopData}`);
+        } catch (e) {
+          console.error("Invalid QR code format", e);
+          toast({
+            variant: "destructive",
+            title: "Invalid QR Code",
+            description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
+          });
+          // Optionally restart scanning after a delay
+        }
+      }).catch(err => console.error("Failed to stop QR scanner", err));
     }
   }, [router, toast]);
   
   const onScanFailure = useCallback((error: Html5QrcodeError) => {
-    // This is called frequently, ignore it.
+    // This is called frequently for non-scans, so we can ignore it to prevent log spam.
   }, []);
-
-  const startScanner = useCallback(() => {
-    if (!qrScannerRef.current || qrScannerRef.current.isScanning) return;
-    
-    qrScannerRef.current.start(
-      { facingMode: "environment" },
-      {
-        fps: 10,
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.7);
-          return { width: qrboxSize, height: qrboxSize };
-        },
-        aspectRatio: 1.0,
-      },
-      onScanSuccess,
-      onScanFailure
-    ).catch(err => {
-      console.error("Error starting scanner:", err);
-    });
-  }, [onScanSuccess, onScanFailure]);
 
   useEffect(() => {
     if (isLoading || !user || typeof window === 'undefined') {
       return;
     }
 
-    if (!qrScannerRef.current) {
-        qrScannerRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
+    if (!html5QrCodeRef.current) {
+        html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
     }
-    const html5QrCode = qrScannerRef.current;
+    const html5QrCode = html5QrCodeRef.current;
+    
+    const startScanner = () => {
+        if(html5QrCode.getState() === Html5QrcodeScannerState.SCANNING) {
+            return;
+        }
+        html5QrCode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const qrboxSize = Math.floor(minEdge * 0.7);
+                return { width: qrboxSize, height: qrboxSize };
+              },
+              aspectRatio: 1.0,
+            },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            console.error("Error starting scanner:", err);
+            setHasCameraPermission(false);
+        });
+    }
 
     const requestCameraAndStart = async () => {
         try {
@@ -96,7 +97,7 @@ export default function ScanPage() {
             setHasCameraPermission(true);
             startScanner();
         } catch (err: any) {
-            console.error("Camera permission error:", err);
+            console.error("Camera permission error:", err.name);
             setHasCameraPermission(false);
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                 toast({
@@ -109,7 +110,7 @@ export default function ScanPage() {
                  toast({
                     variant: 'destructive',
                     title: 'Camera Error',
-                    description: 'Could not initialize camera. It might be in use or not found.',
+                    description: `Could not initialize camera. ${err.message}`,
                     duration: 5000,
                 });
             }
