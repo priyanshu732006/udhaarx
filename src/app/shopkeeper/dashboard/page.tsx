@@ -15,6 +15,7 @@ export default function ShopkeeperDashboard() {
   const { user, transactions, isLoading, setRole, setUser } = useAppContext();
   const router = useRouter();
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [shopTransactions, setShopTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -23,8 +24,11 @@ export default function ShopkeeperDashboard() {
       const shopData = JSON.stringify({ id: user.id, name: user.name, address: user.address });
       const encodedData = encodeURIComponent(shopData);
       setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}&qzone=2&format=png`);
+      
+      const filteredTransactions = transactions.filter(t => t.shopId === user.id);
+      setShopTransactions(filteredTransactions);
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, transactions]);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -37,7 +41,6 @@ export default function ShopkeeperDashboard() {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   }
   
-  const shopTransactions = transactions.filter(t => t.shopId === user.id);
   const totalUdhaar = shopTransactions.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
