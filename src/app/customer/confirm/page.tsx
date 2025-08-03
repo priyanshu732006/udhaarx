@@ -63,8 +63,7 @@ export default function ConfirmPage() {
       amount: amount,
     }).then(() => {
       setIsConfirmed(true);
-      // This was the missing piece. We must also set isSubmitting to false on success.
-      setIsSubmitting(false);
+      setIsSubmitting(false); // This was the missing piece.
     }).catch(error => {
       console.error("Failed to add transaction", error);
       toast({
