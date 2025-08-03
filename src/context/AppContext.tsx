@@ -51,43 +51,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
     };
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setIsLoading(true);
       setFirebaseUser(currentUser);
-      if (currentUser) {
-        const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-        setRoleState(storedRole);
-        
-        // Fetch user data from Firestore to ensure it's up to date
-        if (db) {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            setUserState(userDoc.data() as User);
-          } else {
-             // This case is for when a user signs in for the first time
-             // The details pages should handle creating this doc
-             const newUser: User = {
-                id: currentUser.uid,
-                name: currentUser.displayName || 'Anonymous',
-                email: currentUser.email
-            };
-            setUserState(newUser)
-          }
-        }
-        
-      } else {
+      if (!currentUser) {
         setUserState(null);
         setRoleState(null);
         localStorage.removeItem('udhaarx-role');
-        setTransactions([]); // Clear transactions on logout
+        setTransactions([]);
+        setIsLoading(false);
       }
-      setIsLoading(false);
+      // The user data fetching is now handled in the next useEffect
     });
 
     return () => unsubscribeAuth();
   }, []);
   
+  // Effect for fetching/listening to user data
+  useEffect(() => {
+    if (!db || !firebaseUser) {
+        setIsLoading(false);
+        return;
+    }
+
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+        const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+        setRoleState(storedRole);
+        if (userDoc.exists()) {
+            setUserState(userDoc.data() as User);
+        } else {
+            // This case is for when a user signs in for the first time
+            // The details pages should handle creating this doc
+            const newUser: User = {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || 'Anonymous',
+                email: firebaseUser.email
+            };
+            setUserState(newUser)
+        }
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error listening to user document:", error);
+        setIsLoading(false);
+    });
+    
+    return () => unsubscribeUser();
+
+  }, [firebaseUser])
+
+  // Effect for fetching/listening to transactions
   useEffect(() => {
     if (!db || !user || !role) {
         setTransactions([]);
@@ -97,7 +110,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const transactionsCol = collection(db, 'transactions');
     let q;
     
-    // Determine the query based on the user's role
     const field = role === 'customer' ? 'customerId' : 'shopId';
     q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
 
@@ -131,7 +143,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setUser = async (newUser: User) => {
     setUserState(newUser);
-    // Also save/update the user in Firestore
     if (newUser && db) {
        try {
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
@@ -147,14 +158,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       throw new Error("Firestore not initialized");
     }
     try {
-      // Return the promise from addDoc
       return await addDoc(collection(db, 'transactions'), {
         ...transaction,
         date: Timestamp.now(), 
-      }).then(() => {}); // Ensure it resolves to void
+      }).then(() => {});
     } catch (e) {
       console.error("Error adding document: ", e);
-      // Re-throw the error so it can be caught by the caller
       throw e;
     }
   };
