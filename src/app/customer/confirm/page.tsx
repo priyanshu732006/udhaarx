@@ -43,26 +43,26 @@ export default function ConfirmPage() {
     }
   }, [user, shop, amount, router, isLoading]);
 
-  const handleConfirm = async () => {
-    if (user && shop && amount) {
-      setIsSubmitting(true);
-      try {
-        await addTransaction({
-          customerId: user.id,
-          customerName: user.name,
-          customerMobile: user.mobile || 'N/A',
-          shopId: shop.id,
-          shopName: shop.name,
-          amount: amount,
-        });
-        setIsConfirmed(true);
-      } catch (error) {
-        console.error("Failed to add transaction", error);
-        // Optionally show a toast message on error
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
+  const handleConfirm = () => {
+    if (!user || !shop || !amount) return;
+
+    setIsSubmitting(true);
+
+    addTransaction({
+      customerId: user.id,
+      customerName: user.name,
+      customerMobile: user.mobile || 'N/A',
+      shopId: shop.id,
+      shopName: shop.name,
+      amount: amount,
+    }).then(() => {
+      setIsConfirmed(true);
+      setIsSubmitting(false);
+    }).catch(error => {
+      console.error("Failed to add transaction", error);
+      // Optionally show an error toast to the user
+      setIsSubmitting(false);
+    });
   };
 
   if (isLoading || !user || !shop || !amount) {
