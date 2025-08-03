@@ -54,7 +54,7 @@ export default function ConfirmPage() {
         shopName: shop.name,
         amount: amount,
       });
-      // No need to set isSubmitting to false, as we transition to isConfirmed
+      setIsSubmitting(false);
       setIsConfirmed(true);
     }
   };
