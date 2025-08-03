@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, User, Store } from 'lucide-react';
+import { CheckCircle, ArrowRight, User, Store, Loader2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 
@@ -19,6 +20,7 @@ export default function ConfirmPage() {
   const { user, addTransaction, isLoading } = useAppContext();
   
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const shop = useMemo(() => {
     const shopDataString = searchParams.get('shop');
@@ -41,16 +43,18 @@ export default function ConfirmPage() {
     }
   }, [user, shop, amount, router, isLoading]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (user && shop && amount) {
-      addTransaction({
+      setIsSubmitting(true);
+      await addTransaction({
         customerId: user.id,
         customerName: user.name,
-        customerMobile: user.mobile,
+        customerMobile: user.mobile || 'N/A',
         shopId: shop.id,
         shopName: shop.name,
         amount: amount,
       });
+      setIsSubmitting(false);
       setIsConfirmed(true);
     }
   };
@@ -74,8 +78,8 @@ export default function ConfirmPage() {
                 <Button onClick={() => router.push('/customer/history')} className="w-full">
                     View My Udhaar
                 </Button>
-                <Button onClick={() => router.push('/')} className="w-full" variant="outline">
-                    Back to Home
+                <Button onClick={() => router.push('/customer/scan')} className="w-full" variant="outline">
+                    Record Another Udhaar
                 </Button>
             </CardContent>
         </Card>
@@ -111,8 +115,12 @@ export default function ConfirmPage() {
             </div>
           </div>
           
-          <Button onClick={handleConfirm} className="w-full">
-            Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" />
+          <Button onClick={handleConfirm} className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <>Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" /></>
+            )}
           </Button>
         </CardContent>
       </Card>

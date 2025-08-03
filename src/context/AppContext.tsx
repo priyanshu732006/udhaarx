@@ -3,7 +3,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 
 type User = {
   id: string; // This will be the Firebase UID
@@ -21,7 +22,7 @@ export type Transaction = {
   shopId: string;
   shopName: string;
   amount: number;
-  date: string;
+  date: string; // Storing as ISO string
 };
 
 type AppContextType = {
@@ -30,7 +31,7 @@ type AppContextType = {
   user: User;
   setUser: (user: User) => void;
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<void>;
   isLoading: boolean;
   firebaseUser: FirebaseUser | null;
 };
@@ -44,39 +45,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadTransactions = useCallback(() => {
-    try {
-        const storedTransactions = JSON.parse(localStorage.getItem('udhaarx-transactions') || '[]');
-        setTransactions(storedTransactions);
-      } catch (error) {
-        console.error("Failed to parse transactions from localStorage", error);
-        setTransactions([]);
-      }
-  }, []);
-
-  // Effect to listen for changes in localStorage from other tabs
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'udhaarx-transactions') {
-        loadTransactions();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadTransactions]);
-
-
   useEffect(() => {
     if (typeof window === 'undefined' || !auth) {
         setIsLoading(false);
         return;
     };
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setIsLoading(true);
       setFirebaseUser(currentUser);
       if (currentUser) {
@@ -86,8 +61,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (storedUser && storedUser.id === currentUser.uid) {
             setUserState(storedUser);
         } else {
-            // This case might be hit if a user is authenticated but their details aren't in localStorage.
-            // We should probably guide them to the details page. For now, we create a minimal user.
              const newUser: User = {
                 id: currentUser.uid,
                 name: currentUser.displayName || 'Anonymous',
@@ -100,13 +73,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRoleState(null);
         localStorage.removeItem('udhaarx-user');
         localStorage.removeItem('udhaarx-role');
+        setTransactions([]); // Clear transactions on logout
       }
-      loadTransactions();
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [loadTransactions]);
+    return () => unsubscribeAuth();
+  }, []);
+  
+  useEffect(() => {
+    if (!db || !user || !role) {
+        setTransactions([]);
+        return;
+    }
+
+    const transactionsCol = collection(db, 'transactions');
+    let q;
+    
+    if (role === 'customer') {
+        q = query(transactionsCol, where('customerId', '==', user.id), orderBy('date', 'desc'));
+    } else { // shopkeeper
+        q = query(transactionsCol, where('shopId', '==', user.id), orderBy('date', 'desc'));
+    }
+
+    const unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        const newTransactions = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                // Convert Firestore Timestamp to ISO string for consistency
+                date: (data.date as Timestamp).toDate().toISOString(),
+            } as Transaction;
+        });
+        setTransactions(newTransactions);
+    }, (error) => {
+        console.error("Error fetching transactions:", error);
+    });
+
+    return () => unsubscribeFirestore();
+
+  }, [user, role]);
+
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
     setRoleState(newRole);
@@ -119,19 +127,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setUser = (newUser: User) => {
     setUserState(newUser);
-    localStorage.setItem('udhaarx-user', JSON.stringify(newUser));
+    if (newUser) {
+      localStorage.setItem('udhaarx-user', JSON.stringify(newUser));
+    } else {
+      localStorage.removeItem('udhaarx-user');
+    }
   };
 
-  const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>) => {
-    const currentTransactions = JSON.parse(localStorage.getItem('udhaarx-transactions') || '[]');
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      date: new Date().toISOString(),
-    };
-    const updatedTransactions = [...currentTransactions, newTransaction];
-    setTransactions(updatedTransactions);
-    localStorage.setItem('udhaarx-transactions', JSON.stringify(updatedTransactions));
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
+    if (!db) {
+        console.error("Firestore not initialized");
+        return;
+    }
+    try {
+      await addDoc(collection(db, 'transactions'), {
+        ...transaction,
+        date: new Date(), // Use Firestore server timestamp
+      });
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
   };
 
   const value = {
