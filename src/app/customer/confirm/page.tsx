@@ -1,0 +1,117 @@
+'use client';
+
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle, ArrowRight, User, Store } from 'lucide-react';
+import { useAppContext } from '@/context/AppContext';
+import { Separator } from '@/components/ui/separator';
+
+type ShopData = {
+  id: string;
+  name: string;
+};
+
+export default function ConfirmPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, addTransaction, isLoading } = useAppContext();
+  
+  const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const shop = useMemo(() => {
+    const shopDataString = searchParams.get('shop');
+    if (!shopDataString) return null;
+    try {
+      return JSON.parse(decodeURIComponent(shopDataString)) as ShopData;
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
+
+  const amount = useMemo(() => {
+    return parseFloat(searchParams.get('amount') || '0');
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user) router.push('/customer/details');
+      if (!shop || !amount) router.push('/customer/scan');
+    }
+  }, [user, shop, amount, router, isLoading]);
+
+  const handleConfirm = () => {
+    if (user && shop && amount) {
+      addTransaction({
+        customerId: user.id,
+        customerName: user.name,
+        shopId: shop.id,
+        shopName: shop.name,
+        amount: amount,
+      });
+      setIsConfirmed(true);
+    }
+  };
+
+  if (isLoading || !user || !shop || !amount) {
+    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  }
+  
+  if (isConfirmed) {
+    return (
+       <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-lg text-center">
+            <CardHeader>
+                <div className="mx-auto bg-green-100 p-4 rounded-full w-fit">
+                    <CheckCircle className="w-12 h-12 text-green-600" />
+                </div>
+                <CardTitle className="font-headline text-3xl mt-4">Udhaar Recorded!</CardTitle>
+                <CardDescription>Your transaction of ₹{amount.toFixed(2)} with {shop.name} has been successfully saved.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={() => router.push('/')} className="w-full">
+                    Back to Home
+                </Button>
+            </CardContent>
+        </Card>
+       </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="font-headline text-3xl">Confirm Transaction</CardTitle>
+          <CardDescription>Please review the details below before confirming.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Amount</p>
+              <p className="font-headline text-5xl font-bold text-primary">₹{amount.toFixed(2)}</p>
+            </div>
+          </div>
+          
+          <Separator />
+          
+          <div className="space-y-4 text-sm">
+            <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-2"><User size={16}/> From</span>
+                <span className="font-semibold">{user.name}</span>
+            </div>
+            <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-2"><Store size={16}/> To</span>
+                <span className="font-semibold">{shop.name}</span>
+            </div>
+          </div>
+          
+          <Button onClick={handleConfirm} className="w-full">
+            Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
