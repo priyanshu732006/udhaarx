@@ -57,7 +57,7 @@ export default function ConfirmPage() {
     addTransaction({
       customerId: user.id,
       customerName: user.name,
-      customerMobile: user.mobile || 'N/A',
+      customerMobile: user.mobile || 'N/A', // Reverting this part, but it's okay for now.
       shopId: shop.id,
       shopName: shop.name,
       amount: amount,
@@ -141,7 +141,7 @@ export default function ConfirmPage() {
           <div className="space-y-4 text-sm">
             <div className="flex justify-between items-center">
                 <span className="text-muted-foreground flex items-center gap-2"><User size={16}/> From</span>
-                <span className="font-semibold">{user.name} ({user.mobile || 'N/A'})</span>
+                <span className="font-semibold">{user.name}</span>
             </div>
             <div className="flex justify-between items-center">
                 <span className="text-muted-foreground flex items-center gap-2"><Store size={16}/> To</span>
