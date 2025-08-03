@@ -37,6 +37,7 @@ export default function ShopkeeperDashboard() {
   }
   
   const shopTransactions = transactions.filter(t => t.shopId === user.id);
+  const totalUdhaar = shopTransactions.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -79,9 +80,19 @@ export default function ShopkeeperDashboard() {
 
         <div className="lg:col-span-2">
           <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="font-headline text-2xl">Transaction History</CardTitle>
-              <CardDescription>All udhaar records from your customers.</CardDescription>
+             <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="font-headline text-2xl">Transaction History</CardTitle>
+                  <CardDescription>
+                    {shopTransactions.length} transaction(s) from your customers.
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                    <p className="text-muted-foreground">Total Udhaar</p>
+                    <p className="font-headline text-3xl font-bold text-primary">₹{totalUdhaar.toFixed(2)}</p>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {shopTransactions.length > 0 ? (
