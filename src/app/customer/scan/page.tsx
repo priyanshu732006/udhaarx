@@ -68,6 +68,7 @@ export default function ScanPage() {
                 { 
                     fps: 10, 
                     qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
                 },
                 onScanSuccess,
                 onScanFailure
@@ -124,7 +125,8 @@ export default function ScanPage() {
         </CardHeader>
         <CardContent>
           <div id={QR_SCANNER_ID} className="w-full rounded-lg overflow-hidden aspect-square bg-gray-800 flex items-center justify-center">
-            <ScanLine className="w-1/2 h-1/2 text-gray-600 animate-pulse"/>
+            {hasCameraPermission === null && <Camera className="w-1/2 h-1/2 text-gray-600"/> }
+            {hasCameraPermission === false && <p className="text-red-400 p-4 text-center">Could not access camera. Please check permissions.</p>}
           </div>
            {hasCameraPermission === false && (
               <Alert variant="destructive" className="mt-4 bg-red-900/50 border-red-500/50 text-white">
