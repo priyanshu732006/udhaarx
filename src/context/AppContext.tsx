@@ -87,7 +87,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRoleState(storedRole);
 
         if (userDoc.exists()) {
-            const userData = { id: userDoc.id, ...userDoc.data() } as User;
+            const data = userDoc.data();
+            const userData: User = { 
+              id: userDoc.id,
+              name: data.name,
+              email: data.email,
+              mobile: data.mobile,
+              address: data.address,
+            };
             setUserState(userData);
         } else {
             // User is authenticated, but we don't have their details in Firestore yet.
@@ -111,8 +118,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       
       const transactionsCol = collection(db, 'transactions');
-      // Firestore queries with where and orderBy on different fields require a composite index.
-      // To avoid this, we will order by date on the client side after fetching.
       const field = role === 'customer' ? 'customerId' : 'shopId';
       const q = query(transactionsCol, where(field, '==', user.id));
 
@@ -130,9 +135,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setTransactions(newTransactions);
       }, (error) => {
           console.error("Error fetching transactions:", error);
-          if (error.code === 'failed-precondition') {
-            console.error("This query requires an index. Please create it in your Firebase console.", error.message);
-          }
       });
 
       return () => unsubscribeTransactions();
