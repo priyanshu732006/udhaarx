@@ -1,6 +1,6 @@
-// src/lib/firebase.ts
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 
 const firebaseConfig = {
   "projectId": "udhaarx-58swr",
@@ -11,9 +11,19 @@ const firebaseConfig = {
   "messagingSenderId": "592464655572"
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+let app: FirebaseApp;
+let auth: Auth;
+let googleProvider: GoogleAuthProvider;
 
+if (typeof window !== 'undefined') {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+  auth = getAuth(app);
+  googleProvider = new GoogleAuthProvider();
+}
+
+// @ts-ignore
 export { app, auth, googleProvider };

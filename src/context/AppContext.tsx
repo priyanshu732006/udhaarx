@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -44,6 +45,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+        // Firebase is not initialized yet (we are on the server).
+        // We will wait for the client-side to run this effect.
+        setIsLoading(false);
+        return;
+    };
+
     // Handle auth state changes
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setIsLoading(true);

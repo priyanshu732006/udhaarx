@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ export default function ShopkeeperDashboard() {
   }, [user, isLoading, router]);
 
   const handleLogout = async () => {
+    if (!auth) return;
     await auth.signOut();
     // AppContext will handle cleanup
     router.push('/');
@@ -45,7 +47,7 @@ export default function ShopkeeperDashboard() {
           <h1 className="font-headline text-3xl sm:text-4xl font-bold text-primary">Shopkeeper Dashboard</h1>
           <p className="text-muted-foreground">Welcome, {user.name}!</p>
         </div>
-        <Button variant="outline" onClick={handleLogout}>
+        <Button variant="outline" onClick={handleLogout} disabled={!auth}>
           <LogOut className="mr-2 h-4 w-4"/> Logout
         </Button>
       </header>

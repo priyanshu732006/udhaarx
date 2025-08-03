@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -22,6 +23,7 @@ export default function ShopkeeperDetailsPage() {
 
 
   const handleGoogleSignIn = async () => {
+    if (!auth || !googleProvider) return;
     setIsSigningIn(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -56,7 +58,7 @@ export default function ShopkeeperDetailsPage() {
           <CardDescription>Sign in to access your dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleGoogleSignIn} className="w-full" disabled={isSigningIn}>
+          <Button onClick={handleGoogleSignIn} className="w-full" disabled={isSigningIn || !auth}>
             {isSigningIn ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
