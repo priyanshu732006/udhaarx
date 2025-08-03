@@ -119,6 +119,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       const transactionsCol = collection(db, 'transactions');
       const field = role === 'customer' ? 'customerId' : 'shopId';
+      
+      // We will apply sorting on the client-side to avoid complex composite indexes
       const q = query(transactionsCol, where(field, '==', user.id));
 
       const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
