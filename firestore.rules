@@ -1,24 +1,18 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can manage their own profile.
+    // Allow users to read and write their own profile
     match /users/{userId} {
-      allow read, update, create: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Rules for transactions
     match /transactions/{transactionId} {
-      // Any authenticated user can create a transaction, as long as the customerId in the
-      // transaction matches their own UID. This prevents users from creating transactions
-      // on behalf of others.
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-      
-      // Allow users to read transactions if they are either the customer or the shopkeeper
-      // involved in the transaction.
-      allow read: if request.auth != null && 
-                   (request.resource.data.customerId == request.auth.uid || 
-                    request.resource.data.shopId == request.auth.uid);
+      // Allow any authenticated user to create a transaction
+      allow create: if request.auth != null;
+
+      // Allow users to read transactions if they are the customer or the shopkeeper
+      allow read: if request.auth != null && (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
     }
   }
 }
