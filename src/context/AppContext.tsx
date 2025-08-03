@@ -145,6 +145,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setUser = async (newUser: User) => {
     if (newUser && db) {
       try {
+        // Use the user's firebase UID as the document ID
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
         setUserState(newUser);
       } catch (error) {
@@ -156,7 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>): Promise<void> => {
+ const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>): Promise<void> => {
     if (!db) {
       console.error("Firestore not initialized");
       throw new Error("Firestore not initialized");
