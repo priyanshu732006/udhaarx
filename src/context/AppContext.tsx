@@ -111,8 +111,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       
       const transactionsCol = collection(db, 'transactions');
+      // Firestore queries with where and orderBy on different fields require a composite index.
+      // To avoid this, we will order by date on the client side after fetching.
       const field = role === 'customer' ? 'customerId' : 'shopId';
-      const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
+      const q = query(transactionsCol, where(field, '==', user.id));
 
       const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
           const newTransactions = snapshot.docs.map(doc => {
@@ -123,9 +125,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   date: (data.date as Timestamp).toDate().toISOString(),
               } as Transaction;
           });
+          // Sort transactions by date descending on the client
+          newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           setTransactions(newTransactions);
       }, (error) => {
           console.error("Error fetching transactions:", error);
+          if (error.code === 'failed-precondition') {
+            console.error("This query requires an index. Please create it in your Firebase console.", error.message);
+          }
       });
 
       return () => unsubscribeTransactions();
