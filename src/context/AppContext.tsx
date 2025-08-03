@@ -4,11 +4,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 
 type User = {
   id: string; // This will be the Firebase UID
-  name: string; // displayName from Firebase
+  name: string;
   email: string | null;
   mobile?: string;
   address?: string;
@@ -51,27 +51,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
     };
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setIsLoading(true);
       setFirebaseUser(currentUser);
       if (currentUser) {
         const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-        const storedUser = JSON.parse(localStorage.getItem('udhaarx-user') || 'null');
         setRoleState(storedRole);
-        if (storedUser && storedUser.id === currentUser.uid) {
-            setUserState(storedUser);
-        } else {
+        
+        // Fetch user data from Firestore to ensure it's up to date
+        if (db) {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setUserState(userDoc.data() as User);
+          } else {
+             // This case is for when a user signs in for the first time
+             // The details pages should handle creating this doc
              const newUser: User = {
                 id: currentUser.uid,
                 name: currentUser.displayName || 'Anonymous',
                 email: currentUser.email
             };
-             setUserState(newUser);
+            setUserState(newUser)
+          }
         }
+        
       } else {
         setUserState(null);
         setRoleState(null);
-        localStorage.removeItem('udhaarx-user');
         localStorage.removeItem('udhaarx-role');
         setTransactions([]); // Clear transactions on logout
       }
@@ -84,17 +91,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!db || !user || !role) {
         setTransactions([]);
-        return;
+        return () => {}; // Return an empty function for cleanup
     }
 
     const transactionsCol = collection(db, 'transactions');
     let q;
     
-    if (role === 'customer') {
-        q = query(transactionsCol, where('customerId', '==', user.id), orderBy('date', 'desc'));
-    } else { // shopkeeper
-        q = query(transactionsCol, where('shopId', '==', user.id), orderBy('date', 'desc'));
-    }
+    // Determine the query based on the user's role
+    const field = role === 'customer' ? 'customerId' : 'shopId';
+    q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
 
     const unsubscribeFirestore = onSnapshot(q, (snapshot) => {
         const newTransactions = snapshot.docs.map(doc => {
@@ -102,7 +107,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return {
                 id: doc.id,
                 ...data,
-                // Convert Firestore Timestamp to ISO string for consistency
                 date: (data.date as Timestamp).toDate().toISOString(),
             } as Transaction;
         });
@@ -111,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("Error fetching transactions:", error);
     });
 
-    return () => unsubscribeFirestore();
+    return () => unsubscribeFirestore(); // Cleanup the listener
 
   }, [user, role]);
 
@@ -125,27 +129,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setUser = (newUser: User) => {
+  const setUser = async (newUser: User) => {
     setUserState(newUser);
-    if (newUser) {
-      localStorage.setItem('udhaarx-user', JSON.stringify(newUser));
-    } else {
-      localStorage.removeItem('udhaarx-user');
+    // Also save/update the user in Firestore
+    if (newUser && db) {
+       try {
+        await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
+       } catch (error) {
+        console.error("Error saving user to Firestore:", error);
+       }
     }
   };
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
     if (!db) {
-        console.error("Firestore not initialized");
-        return;
+      console.error("Firestore not initialized");
+      throw new Error("Firestore not initialized");
     }
     try {
-      await addDoc(collection(db, 'transactions'), {
+      // Return the promise from addDoc
+      return await addDoc(collection(db, 'transactions'), {
         ...transaction,
-        date: new Date(), // Use Firestore server timestamp
-      });
+        date: Timestamp.now(), 
+      }).then(() => {}); // Ensure it resolves to void
     } catch (e) {
       console.error("Error adding document: ", e);
+      // Re-throw the error so it can be caught by the caller
+      throw e;
     }
   };
 

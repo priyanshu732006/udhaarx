@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle, ArrowRight, User, Store, Loader2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 type ShopData = {
   id: string;
@@ -18,6 +19,7 @@ export default function ConfirmPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, addTransaction, isLoading } = useAppContext();
+  const { toast } = useToast();
   
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,10 +59,14 @@ export default function ConfirmPage() {
       amount: amount,
     }).then(() => {
       setIsConfirmed(true);
-      setIsSubmitting(false);
     }).catch(error => {
       console.error("Failed to add transaction", error);
-      // Optionally show an error toast to the user
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: "Could not save your udhaar. Please try again.",
+      });
+    }).finally(() => {
       setIsSubmitting(false);
     });
   };
@@ -72,7 +78,7 @@ export default function ConfirmPage() {
       </div>
     );
   }
-
+  
   if (isSubmitting) {
      return (
       <div className="flex min-h-screen flex-col gap-4 items-center justify-center bg-background p-4">
@@ -135,7 +141,12 @@ export default function ConfirmPage() {
           </div>
           
           <Button onClick={handleConfirm} className="w-full" disabled={isSubmitting}>
-            Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" />
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowRight className="ml-2 h-4 w-4" />
+            )}
+            {isSubmitting ? 'Saving...' : 'Confirm and Save Udhaar'}
           </Button>
         </CardContent>
       </Card>
