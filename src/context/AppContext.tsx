@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore';
@@ -44,57 +44,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthLoading, setAuthLoading] = useState(true);
+  const [isDataLoading, setDataLoading] = useState(true);
 
   // Listener for auth state changes from Firebase
   useEffect(() => {
     if (!auth) {
-      setIsLoading(false);
+      setAuthLoading(false);
       return;
     }
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentFirebaseUser) => {
-      setIsLoading(true);
-      if (currentFirebaseUser) {
-        setFirebaseUser(currentFirebaseUser);
-        
-        // Fetch user data from Firestore on auth change
-        const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
-        
-        const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
-            const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-            setRoleState(storedRole);
-
-            if (userDoc.exists()) {
-                const data = userDoc.data();
-                const userData: User = { 
-                  id: userDoc.id,
-                  name: data.name,
-                  email: data.email,
-                  mobile: data.mobile,
-                  address: data.address,
-                };
-                setUserState(userData);
-            } else {
-                setUserState(null);
-            }
-        });
-
-        // Detach listener on cleanup
-        return () => unsubscribeUser();
-
-      } else {
-        // User logged out
-        setFirebaseUser(null);
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+      setFirebaseUser(currentFirebaseUser);
+      const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+      setRoleState(storedRole);
+      
+      if (!currentFirebaseUser) {
+        // Logged out
         setUserState(null);
         setRoleState(null);
-        setTransactions([]);
         localStorage.removeItem('udhaarx-role');
       }
-      setIsLoading(false);
+      setAuthLoading(false);
     });
     return () => unsubscribeAuth();
   }, []);
+  
+  // Listener for user data from firestore, dependent on firebaseUser
+  useEffect(() => {
+      if(!firebaseUser) {
+          setDataLoading(false);
+          return;
+      }
+      
+      setDataLoading(true);
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const userData: User = {
+            id: userDoc.id,
+            name: data.name,
+            email: data.email,
+            mobile: data.mobile,
+            address: data.address,
+          };
+          setUserState(userData);
+        } else {
+          setUserState(null);
+        }
+        setDataLoading(false);
+      }, (error) => {
+        console.error("Error fetching user document:", error);
+        setDataLoading(false);
+      });
 
-  // Separate listener for transactions that depends on user and role
+      return () => unsubscribeUser();
+  }, [firebaseUser]);
+
+  // Listener for transactions that depends on user and role
   useEffect(() => {
       if (!db || !user || !role) {
           setTransactions([]);
@@ -122,7 +129,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       return () => unsubscribeTransactions();
 
-  }, [user, role])
+  }, [user, role]);
+  
+  // Combined loading state
+  useEffect(() => {
+    setIsLoading(isAuthLoading || isDataLoading);
+  }, [isAuthLoading, isDataLoading]);
 
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
@@ -138,7 +150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (newUser && db) {
       try {
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
-        setUserState(newUser);
+        // The onSnapshot listener will automatically update the state
       } catch (error) {
         console.error("Error saving user to Firestore:", error);
         throw error;
