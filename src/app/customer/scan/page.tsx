@@ -1,9 +1,10 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Html5Qrcode, Html5QrcodeError, Html5QrcodeResult } from 'html5-qrcode';
-import { ScanLine, Camera, BookOpenCheck } from 'lucide-react';
+import { Camera, BookOpenCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
@@ -20,93 +21,92 @@ export default function ScanPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
 
+  // Redirect if user is not logged in
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/customer/details');
     }
   }, [user, isLoading, router]);
 
+  const onScanSuccess = useCallback((decodedText: string, result: Html5QrcodeResult) => {
+    if (qrScannerRef.current?.isScanning) {
+      qrScannerRef.current.stop().catch(err => console.error("Failed to stop QR scanner", err));
+    }
+    try {
+      // Validate that the decoded text is a valid JSON object
+      JSON.parse(decodedText); 
+      setScanMessage('QR Code detected! Redirecting...');
+      const encodedShopData = encodeURIComponent(decodedText);
+      router.push(`/customer/pay?shop=${encodedShopData}`);
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Invalid QR Code",
+        description: "The scanned QR code is not valid for UdhaarX.",
+      });
+      // Optionally restart the scanner
+    }
+  }, [router, toast]);
+  
+  const onScanFailure = useCallback((error: Html5QrcodeError) => {
+    // This is called frequently. We can add logic here if needed, but for now, we'll ignore it to prevent spamming logs/toasts.
+  }, []);
+
+  // Initialize and start the scanner
   useEffect(() => {
-    if (isLoading || !user || typeof window === 'undefined') return;
-
-    if (!qrScannerRef.current) {
-        qrScannerRef.current = new Html5Qrcode(QR_SCANNER_ID);
+    if (isLoading || !user || typeof window === 'undefined' || qrScannerRef.current) {
+      return;
     }
-    const html5QrCode = qrScannerRef.current;
 
-    const onScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {
-        if (html5QrCode.isScanning) {
-            html5QrCode.stop().catch(err => console.error("Failed to stop QR scanner", err));
-        }
-        try {
-            JSON.parse(decodedText);
-            setScanMessage('QR Code detected! Redirecting...');
-            const encodedShopData = encodeURIComponent(decodedText);
-            router.push(`/customer/pay?shop=${encodedShopData}`);
-        } catch (e) {
-            toast({
-                variant: "destructive",
-                title: "Invalid QR Code",
-                description: "The scanned QR code is not valid for UdhaarX.",
-            });
-            startScanner(); // Restart scanning after invalid code
-        }
-    };
-
-    const onScanFailure = (error: Html5QrcodeError) => {
-        // This callback is called frequently, so we don't show a toast here.
-        // It's useful for debugging but can be ignored for production.
-    };
-
+    const html5QrCode = new Html5Qrcode(QR_SCANNER_ID);
+    qrScannerRef.current = html5QrCode;
+    
     const startScanner = async () => {
-        try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                setHasCameraPermission(true);
-                html5QrCode.start(
-                    { facingMode: "environment" },
-                    { 
-                        fps: 10, 
-                        qrbox: { width: 250, height: 250 },
-                        aspectRatio: 1.0,
-                    },
-                    onScanSuccess,
-                    onScanFailure
-                ).catch(err => {
-                    setHasCameraPermission(false);
-                });
-            } else {
-                setHasCameraPermission(false);
-                toast({ variant: 'destructive', title: 'No Camera Found', description: 'Could not find a camera on this device.' });
-            }
-        } catch (err: any) {
-            setHasCameraPermission(false);
-            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                toast({
-                    variant: 'destructive',
-                    title: 'Camera Access Denied',
-                    description: 'Please enable camera permissions in your browser settings to scan a QR code.',
-                });
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Camera Error',
-                    description: `Could not start camera. ${err.message}`,
-                });
-            }
+      try {
+        await Html5Qrcode.getCameras();
+        setHasCameraPermission(true);
+        html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+          },
+          onScanSuccess,
+          onScanFailure
+        ).catch(err => {
+          console.error("Error starting scanner:", err);
+          setHasCameraPermission(false);
+        });
+      } catch (err: any) {
+        console.error("Camera permission error:", err);
+        setHasCameraPermission(false);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            toast({
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to scan a QR code.',
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Camera Error',
+                description: 'Could not initialize the camera. It might be in use by another application.',
+            });
         }
-    };
-
-    if (hasCameraPermission === null) {
-        startScanner();
-    }
-      
-    return () => {
-      if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-          qrScannerRef.current.stop().catch(error => console.info("QR scanner failed to stop.", error));
       }
     };
-  }, [user, isLoading, router, toast, hasCameraPermission]);
+    
+    startScanner();
+
+    // Cleanup on component unmount
+    return () => {
+      if (qrScannerRef.current && qrScannerRef.current.isScanning) {
+        qrScannerRef.current.stop().catch(error => console.info("QR scanner failed to stop on unmount.", error));
+      }
+      qrScannerRef.current = null;
+    };
+  }, [user, isLoading, onScanSuccess, onScanFailure, toast]);
 
   if (isLoading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
