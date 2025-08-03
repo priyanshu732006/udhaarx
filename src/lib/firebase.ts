@@ -7,7 +7,7 @@ const firebaseConfig = {
   appId: "1:592464655572:web:17584bccdd5c67b6363741",
   storageBucket: "udhaarx-58swr.appspot.com",
   apiKey: "AIzaSyDOjDU8TeLu5X8QtcQY4Uq4CFZGq4rxtqs",
-  authDomain: "udhaarx-58swr.firebaseapp.com",
+  authDomain: "udhaarx-58swr.web.app",
   messagingSenderId: "592464655572",
 };
 
