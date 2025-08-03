@@ -42,6 +42,7 @@ export default function ShopkeeperDetailsPage() {
       name: '',
       address: '',
       mobile: '',
+      otp: '',
     },
   });
 
@@ -54,10 +55,10 @@ export default function ShopkeeperDetailsPage() {
     setGeneratedOtp(otp);
     setOtpSent(true);
 
-    console.log(`OTP for ${mobile} is: ${otp}`);
+    console.log(`OTP for ${mobile} is: ${otp} (This is for testing)`);
     toast({
       title: 'OTP Sent!',
-      description: `We've sent an OTP to ${mobile}. (Check the console for the OTP).`,
+      description: `We've sent an OTP to ${mobile}. (Check your browser's developer console).`,
     });
   };
 
