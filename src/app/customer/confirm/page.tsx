@@ -63,15 +63,20 @@ export default function ConfirmPage() {
       amount: amount,
     }).then(() => {
       setIsConfirmed(true);
-      setIsSubmitting(false); // This was the missing piece.
+      setIsSubmitting(false);
     }).catch(error => {
       console.error("Failed to add transaction", error);
+      let description = "Could not save your udhaar. Please try again.";
+      if (error.code === 'permission-denied') {
+        description = "You do not have permission to write to the database. Please check your Firestore security rules.";
+      }
       toast({
         variant: "destructive",
         title: "Transaction Failed",
-        description: "Could not save your udhaar. Please try again.",
+        description: description,
+        duration: 9000
       });
-      setIsSubmitting(false); // Also ensure loading stops on error.
+      setIsSubmitting(false); 
     });
   };
   
@@ -101,7 +106,7 @@ export default function ConfirmPage() {
                     <CheckCircle className="w-12 h-12 text-green-600" />
                 </div>
                 <CardTitle className="font-headline text-3xl mt-4">Udhaar Recorded!</CardTitle>
-                <CardDescription>Your transaction of ₹{amount.toFixed(2)} with {shop.name} has been successfully saved.</CardDescription>
+                <CardDescription>Your transaction of ?{amount.toFixed(2)} with {shop.name} has been successfully saved.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
                 <Button onClick={() => router.push('/customer/history')} className="w-full">
@@ -127,7 +132,7 @@ export default function ConfirmPage() {
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Amount</p>
-              <p className="font-headline text-5xl font-bold text-primary">₹{amount.toFixed(2)}</p>
+              <p className="font-headline text-5xl font-bold text-primary">?{amount.toFixed(2)}</p>
             </div>
           </div>
           
