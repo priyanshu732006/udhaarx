@@ -7,12 +7,18 @@ import { useAppContext } from '@/context/AppContext';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
 import { auth, googleProvider } from '@/lib/firebase';
 import { signInWithPopup } from 'firebase/auth';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function CustomerDetailsPage() {
   const router = useRouter();
   const { setRole, setUser, isLoading, user: appContextUser } = useAppContext();
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && appContextUser && !isSigningIn) {
+      router.push('/customer/scan');
+    }
+  }, [isLoading, appContextUser, isSigningIn, router]);
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
@@ -34,13 +40,8 @@ export default function CustomerDetailsPage() {
     }
   };
   
-  if (isLoading) {
+  if (isLoading || (appContextUser && !isSigningIn)) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
-  }
-  
-  if (appContextUser && !isSigningIn) {
-     router.push('/customer/scan');
-     return <div className="flex min-h-screen items-center justify-center">Redirecting...</div>;
   }
 
   return (
