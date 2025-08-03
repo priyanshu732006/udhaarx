@@ -85,7 +85,7 @@ export default function ShopkeeperDashboard() {
                 <div>
                   <CardTitle className="font-headline text-2xl">Transaction History</CardTitle>
                   <CardDescription>
-                    {shopTransactions.length} transaction(s) from your customers.
+                    You have {shopTransactions.length} transaction(s) from your customers.
                   </CardDescription>
                 </div>
                 <div className="text-right">
