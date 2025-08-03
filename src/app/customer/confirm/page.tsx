@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, User, Store, Loader2 } from 'lucide-react';
+import { CheckCircle, User, Store, Loader2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -35,18 +35,22 @@ export default function ConfirmPage() {
   }, [searchParams]);
 
   const amount = useMemo(() => {
-    return parseFloat(searchParams.get('amount') || '0');
+    const rawAmount = searchParams.get('amount');
+    if (!rawAmount) return null;
+    const parsedAmount = parseFloat(rawAmount);
+    return isNaN(parsedAmount) ? null : parsedAmount;
   }, [searchParams]);
 
   useEffect(() => {
     if (!isLoading) {
       if (!user) router.push('/customer/details');
-      if (!shop || !amount) router.push('/customer/scan');
+      // Also check for invalid shop or amount from URL
+      if (!shop || amount === null) router.push('/customer/scan');
     }
   }, [user, shop, amount, router, isLoading]);
 
   const handleConfirm = () => {
-    if (!user || !shop || !amount) return;
+    if (!user || !shop || amount === null) return;
 
     setIsSubmitting(true);
 
@@ -70,8 +74,8 @@ export default function ConfirmPage() {
       setIsSubmitting(false);
     });
   };
-
-  if (isLoading || !user || !shop || !amount) {
+  
+  if (isLoading || !user || !shop || amount === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

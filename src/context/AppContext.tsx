@@ -29,7 +29,7 @@ type AppContextType = {
   role: 'customer' | 'shopkeeper' | null;
   setRole: (role: 'customer' | 'shopkeeper' | null) => void;
   user: User;
-  setUser: (user: User) => void;
+  setUser: (user: User) => Promise<void>;
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<void>;
   isLoading: boolean;
@@ -45,7 +45,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Auth state listener
+  // Listener for auth state changes from Firebase
   useEffect(() => {
     if (!auth) {
       setIsLoading(false);
@@ -56,6 +56,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
       } else {
+        // User logged out
         setFirebaseUser(null);
         setUserState(null);
         setRoleState(null);
@@ -67,72 +68,70 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => unsubscribeAuth();
   }, []);
 
-  // User and transaction data listener
+  // Listener for user data and transactions once we have a firebaseUser
   useEffect(() => {
-    if (!db) return;
+    if (!db || !firebaseUser) {
+      // If no user, stop loading and clear data
+      if (!firebaseUser) {
+          setIsLoading(false);
+          setUserState(null);
+          setTransactions([]);
+      }
+      return;
+    }
 
-    let unsubscribeUser: () => void = () => {};
-    let unsubscribeTransactions: () => void = () => {};
-
-    if (firebaseUser) {
-      // Listen to user document
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+    // We have a firebaseUser, now listen to their document in Firestore
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
         setRoleState(storedRole);
 
         if (userDoc.exists()) {
-          const userData = { id: userDoc.id, ...userDoc.data() } as User;
-          setUserState(userData);
+            const userData = { id: userDoc.id, ...userDoc.data() } as User;
+            setUserState(userData);
+        } else {
+            // User is authenticated, but we don't have their details in Firestore yet.
+            // This is fine, the details page will call `setUser` to create it.
+            setUserState(null);
+        }
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching user document:", error);
+        setIsLoading(false);
+    });
 
-          // Once we have the user and role, listen to transactions
-          if (storedRole && userData) {
-            const transactionsCol = collection(db, 'transactions');
-            const field = storedRole === 'customer' ? 'customerId' : 'shopId';
-            const q = query(transactionsCol, where(field, '==', userData.id), orderBy('date', 'desc'));
+    return () => unsubscribeUser();
+  }, [firebaseUser]);
 
-            unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-              const newTransactions = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
+  // Separate listener for transactions that depends on user and role
+  useEffect(() => {
+      if (!db || !user || !role) {
+          setTransactions([]);
+          return;
+      }
+      
+      const transactionsCol = collection(db, 'transactions');
+      const field = role === 'customer' ? 'customerId' : 'shopId';
+      const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
+
+      const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+          const newTransactions = snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
                   id: doc.id,
                   ...data,
                   date: (data.date as Timestamp).toDate().toISOString(),
-                } as Transaction;
-              });
-              setTransactions(newTransactions);
-            }, (error) => {
-              console.error("Error fetching transactions:", error);
-            });
-          }
-        } else {
-            // User exists in auth, but not in our 'users' collection yet.
-            // The details page should create this doc via setUser.
-             const newUser: User = {
-                id: firebaseUser.uid,
-                name: firebaseUser.displayName || 'Anonymous',
-                email: firebaseUser.email
-            };
-            setUserState(newUser)
-        }
-        setIsLoading(false);
+              } as Transaction;
+          });
+          setTransactions(newTransactions);
       }, (error) => {
-        console.error("Error listening to user document:", error);
-        setIsLoading(false);
+          console.error("Error fetching transactions:", error);
       });
 
-    } else {
-      // No firebaseUser, ensure everything is cleared
-      setUserState(null);
-      setTransactions([]);
-    }
-    
-    // Cleanup listeners on unmount or when firebaseUser changes
-    return () => {
-      unsubscribeUser();
-      unsubscribeTransactions();
-    };
-  }, [firebaseUser]);
+      return () => unsubscribeTransactions();
+
+  }, [user, role])
+
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
     setRoleState(newRole);
@@ -144,14 +143,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const setUser = async (newUser: User) => {
-    // This function is for CREATING/UPDATING the user doc in firestore
     if (newUser && db) {
-       try {
+      try {
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
-        setUserState(newUser); // also update local state
-       } catch (error) {
+        setUserState(newUser);
+      } catch (error) {
         console.error("Error saving user to Firestore:", error);
-       }
+        throw error;
+      }
     } else {
       setUserState(null);
     }
@@ -163,6 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       throw new Error("Firestore not initialized");
     }
     try {
+      // The 'return' here is crucial for the promise chain on the confirm page.
       await addDoc(collection(db, 'transactions'), {
         ...transaction,
         date: Timestamp.now(), 
