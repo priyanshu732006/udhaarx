@@ -103,6 +103,7 @@ export default function ShopkeeperDashboard() {
                     <Table>
                     <TableHeader>
                         <TableRow>
+                        <TableHead>Customer ID</TableHead>
                         <TableHead>Customer Name</TableHead>
                         <TableHead>Mobile</TableHead>
                         <TableHead>Date</TableHead>
@@ -112,6 +113,7 @@ export default function ShopkeeperDashboard() {
                     <TableBody>
                         {transactions.map((tx: Transaction) => (
                         <TableRow key={tx.id}>
+                            <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
                             <TableCell className="font-medium">{tx.customerName}</TableCell>
                             <TableCell>{tx.customerMobile}</TableCell>
                             <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>

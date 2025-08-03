@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 type ShopData = {
   id: string;
   name: string;
+  address: string;
 };
 
 export default function ConfirmPage() {
@@ -60,6 +61,7 @@ export default function ConfirmPage() {
       customerMobile: user.mobile || 'N/A',
       shopId: shop.id,
       shopName: shop.name,
+      shopAddress: shop.address || 'N/A',
       amount: amount,
     }).then(() => {
       setIsConfirmed(true);

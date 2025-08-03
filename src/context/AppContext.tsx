@@ -21,6 +21,7 @@ export type Transaction = {
   customerMobile: string;
   shopId: string;
   shopName: string;
+  shopAddress: string;
   amount: number;
   date: string; // Storing as ISO string
 };

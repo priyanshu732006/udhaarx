@@ -173,6 +173,7 @@ export default function CustomerHistoryPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Shop Name</TableHead>
+                      <TableHead>Shop Address</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
@@ -181,6 +182,7 @@ export default function CustomerHistoryPage() {
                     {transactions.map((tx: Transaction) => (
                       <TableRow key={tx.id}>
                         <TableCell className="font-medium">{tx.shopName}</TableCell>
+                        <TableCell>{tx.shopAddress}</TableCell>
                         <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
                       </TableRow>
