@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { ScanLine, Camera } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/context/AppContext';
@@ -27,23 +28,19 @@ export default function ScanPage() {
   useEffect(() => {
     if(isLoading || !user || typeof window === 'undefined') return;
 
-    const qrScanner = new Html5QrcodeScanner(
-      QR_SCANNER_ID,
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-      },
-      false
-    );
+    const html5QrCode = new Html5Qrcode(QR_SCANNER_ID);
 
     const onScanSuccess = (decodedText: string) => {
       try {
         JSON.parse(decodedText);
         setScanMessage('QR Code detected! Redirecting...');
         const encodedShopData = encodeURIComponent(decodedText);
-        router.push(`/customer/pay?shop=${encodedShopData}`);
-        qrScanner.clear().catch(error => console.error("Failed to clear scanner", error));
+        html5QrCode.stop().then(() => {
+            router.push(`/customer/pay?shop=${encodedShopData}`);
+        }).catch(err => {
+            console.error("Failed to stop QR scanner", err);
+            router.push(`/customer/pay?shop=${encodedShopData}`);
+        });
       } catch (e) {
         toast({
           variant: "destructive",
@@ -55,34 +52,53 @@ export default function ScanPage() {
 
     const onScanFailure = (error: any) => {
       // Continuous scanning, so ignore non-match errors.
-      // We can add more specific error handling here if needed.
     };
-    
-    qrScanner.render(onScanSuccess, onScanFailure)
-      .then(() => setHasCameraPermission(true))
-      .catch(err => {
-        console.error("Camera permission error", err)
-        setHasCameraPermission(false);
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-             toast({
-                variant: 'destructive',
-                title: 'Camera Access Denied',
-                description: 'Please enable camera permissions in your browser settings to scan a QR code.',
-            });
-        } else {
-             toast({
-                variant: 'destructive',
-                title: 'Camera Error',
-                description: 'Could not initialize the camera. Please check if another app is using it.',
-            });
-        }
-      });
-      
 
+    const startScanner = async () => {
+        try {
+            await Html5Qrcode.getCameras();
+            setHasCameraPermission(true);
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                },
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Error',
+                    description: 'Could not start the camera. Please check permissions.',
+                });
+                setHasCameraPermission(false);
+            });
+        } catch (err: any) {
+            console.error("Camera permission error", err);
+            setHasCameraPermission(false);
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings to scan a QR code.',
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Error',
+                    description: 'Could not initialize the camera. Please check if another app is using it or if it is supported.',
+                });
+            }
+        }
+    }
+
+    startScanner();
+      
     return () => {
       // cleanup function to clear the scanner on component unmount
-      if (document.getElementById(QR_SCANNER_ID)) {
-          qrScanner.clear().catch(error => console.error("Failed to clear scanner on unmount", error));
+      if (html5QrCode && html5QrCode.isScanning) {
+          html5QrCode.stop().catch(error => console.error("Failed to clear scanner on unmount", error));
       }
     };
   }, [user, isLoading, router, toast]);
