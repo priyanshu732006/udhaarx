@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 type User = {
   id: string;
   name: string;
-  mobile?: string;
+  mobile: string;
   address?: string;
 } | null;
 
@@ -13,6 +13,7 @@ export type Transaction = {
   id: string;
   customerId: string;
   customerName: string;
+  customerMobile: string;
   shopId: string;
   shopName: string;
   amount: number;

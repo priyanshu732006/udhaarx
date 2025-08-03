@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, User, Store, BookOpenCheck } from 'lucide-react';
+import { CheckCircle, ArrowRight, User, Store } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 
@@ -46,6 +46,7 @@ export default function ConfirmPage() {
       addTransaction({
         customerId: user.id,
         customerName: user.name,
+        customerMobile: user.mobile,
         shopId: shop.id,
         shopName: shop.name,
         amount: amount,
