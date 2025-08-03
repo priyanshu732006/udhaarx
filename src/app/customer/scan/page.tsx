@@ -1,14 +1,14 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
-import { ScanLine, Camera } from 'lucide-react';
+import { ScanLine, Camera, BookOpenCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const QR_SCANNER_ID = "qr-scanner";
 
@@ -29,8 +29,12 @@ export default function ScanPage() {
     if(isLoading || !user || typeof window === 'undefined') return;
 
     const html5QrCode = new Html5Qrcode(QR_SCANNER_ID);
+    let scannerRunning = true;
 
     const onScanSuccess = (decodedText: string) => {
+      if (!scannerRunning) return;
+      scannerRunning = false;
+
       try {
         JSON.parse(decodedText);
         setScanMessage('QR Code detected! Redirecting...');
@@ -47,6 +51,7 @@ export default function ScanPage() {
           title: "Invalid QR Code",
           description: "The scanned QR code is not valid for UdhaarX.",
         });
+        scannerRunning = true; // Allow scanning again
       }
     };
 
@@ -96,9 +101,9 @@ export default function ScanPage() {
     startScanner();
       
     return () => {
-      // cleanup function to clear the scanner on component unmount
+      scannerRunning = false;
       if (html5QrCode && html5QrCode.isScanning) {
-          html5QrCode.stop().catch(error => console.error("Failed to clear scanner on unmount", error));
+          html5QrCode.stop().catch(error => console.info("QR scanner already stopped.", error));
       }
     };
   }, [user, isLoading, router, toast]);
@@ -108,8 +113,8 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
-      <Card className="w-full max-w-sm bg-black/50 border-gray-700 text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
+       <Card className="w-full max-w-sm bg-black/50 border-gray-700 text-white">
         <CardHeader className="text-center">
             <div className="mx-auto bg-primary/20 p-3 rounded-full w-fit">
                 <Camera className="w-8 h-8 text-primary"/>
@@ -118,7 +123,9 @@ export default function ScanPage() {
           <CardDescription className="text-gray-300">{scanMessage}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div id={QR_SCANNER_ID} className="w-full rounded-lg overflow-hidden"></div>
+          <div id={QR_SCANNER_ID} className="w-full rounded-lg overflow-hidden aspect-square bg-gray-800 flex items-center justify-center">
+            <ScanLine className="w-1/2 h-1/2 text-gray-600 animate-pulse"/>
+          </div>
            {hasCameraPermission === false && (
               <Alert variant="destructive" className="mt-4 bg-red-900/50 border-red-500/50 text-white">
                   <AlertTitle>Camera Access Denied</AlertTitle>
@@ -129,6 +136,12 @@ export default function ScanPage() {
            )}
         </CardContent>
       </Card>
+      <Button 
+        variant="outline" 
+        className="mt-6 bg-white/10 text-white border-white/20 hover:bg-white/20"
+        onClick={() => router.push('/customer/history')}>
+        <BookOpenCheck className="mr-2"/> View My Udhaar
+      </Button>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, User, Store } from 'lucide-react';
+import { CheckCircle, ArrowRight, User, Store, BookOpenCheck } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 
@@ -69,8 +69,11 @@ export default function ConfirmPage() {
                 <CardTitle className="font-headline text-3xl mt-4">Udhaar Recorded!</CardTitle>
                 <CardDescription>Your transaction of ₹{amount.toFixed(2)} with {shop.name} has been successfully saved.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <Button onClick={() => router.push('/')} className="w-full">
+            <CardContent className="space-y-2">
+                <Button onClick={() => router.push('/customer/history')} className="w-full">
+                    View My Udhaar
+                </Button>
+                <Button onClick={() => router.push('/')} className="w-full" variant="outline">
                     Back to Home
                 </Button>
             </CardContent>
