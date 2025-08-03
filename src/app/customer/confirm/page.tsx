@@ -144,9 +144,8 @@ export default function ConfirmPage() {
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <ArrowRight className="ml-2 h-4 w-4" />
+               'Confirm and Save Udhaar'
             )}
-            {isSubmitting ? 'Saving...' : 'Confirm and Save Udhaar'}
           </Button>
         </CardContent>
       </Card>
