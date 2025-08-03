@@ -54,13 +54,26 @@ export default function ConfirmPage() {
         shopName: shop.name,
         amount: amount,
       });
-      setIsSubmitting(false);
+      // No need to set isSubmitting to false, as we transition to isConfirmed
       setIsConfirmed(true);
     }
   };
 
   if (isLoading || !user || !shop || !amount) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isSubmitting) {
+     return (
+      <div className="flex min-h-screen flex-col gap-4 items-center justify-center bg-background p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-muted-foreground">Saving your udhaar...</p>
+      </div>
+    );
   }
   
   if (isConfirmed) {
@@ -116,11 +129,7 @@ export default function ConfirmPage() {
           </div>
           
           <Button onClick={handleConfirm} className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <>Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" /></>
-            )}
+            Confirm and Save Udhaar <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </CardContent>
       </Card>
