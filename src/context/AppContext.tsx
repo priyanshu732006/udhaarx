@@ -58,24 +58,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         // Fetch user data from Firestore on auth change
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        
+        const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+            const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+            setRoleState(storedRole);
 
-        const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-        setRoleState(storedRole);
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                const userData: User = { 
+                  id: userDoc.id,
+                  name: data.name,
+                  email: data.email,
+                  mobile: data.mobile,
+                  address: data.address,
+                };
+                setUserState(userData);
+            } else {
+                setUserState(null);
+            }
+        });
 
-        if (userDoc.exists()) {
-            const data = userDoc.data();
-            const userData: User = { 
-              id: userDoc.id,
-              name: data.name,
-              email: data.email,
-              mobile: data.mobile,
-              address: data.address,
-            };
-            setUserState(userData);
-        } else {
-            setUserState(null);
-        }
+        // Detach listener on cleanup
+        return () => unsubscribeUser();
 
       } else {
         // User logged out
@@ -100,7 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const transactionsCol = collection(db, 'transactions');
       const field = role === 'customer' ? 'customerId' : 'shopId';
       
-      const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
+      const q = query(transactionsCol, where(field, '==', user.id));
 
       const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
           const newTransactions = snapshot.docs.map(doc => {
@@ -111,6 +115,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   date: (data.date as Timestamp).toDate().toISOString(),
               } as Transaction;
           });
+          
+          // Sort transactions on the client-side
+          newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          
           setTransactions(newTransactions);
       }, (error) => {
           console.error("Error fetching transactions:", error);
