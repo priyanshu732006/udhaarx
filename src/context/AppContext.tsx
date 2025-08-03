@@ -82,7 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRoleState(storedRole);
 
         if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
+          const userData = { id: userDoc.id, ...userDoc.data() } as User;
           setUserState(userData);
 
           // Once we have the user and role, listen to transactions
@@ -157,17 +157,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>): Promise<void> => {
     if (!db) {
       console.error("Firestore not initialized");
       throw new Error("Firestore not initialized");
     }
     try {
-      // This now correctly returns a promise
-      return await addDoc(collection(db, 'transactions'), {
+      await addDoc(collection(db, 'transactions'), {
         ...transaction,
         date: Timestamp.now(), 
-      }).then(() => {});
+      });
     } catch (e) {
       console.error("Error adding document: ", e);
       throw e; // Re-throw the error to be caught by the caller
