@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   mobile: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
-  address: z.string().min(5, { message: 'Address must be at least 5 characters.' }).optional(),
 });
 
 type CustomerDetails = z.infer<typeof formSchema>;
@@ -34,7 +33,6 @@ export default function CustomerDetailsPage() {
     defaultValues: {
       name: '',
       mobile: '',
-      address: '',
     },
   });
 
@@ -53,7 +51,6 @@ export default function CustomerDetailsPage() {
         name: customerDetails.name,
         email: user.email,
         mobile: customerDetails.mobile,
-        address: customerDetails.address
       };
       await setUser(customerData);
       setRole('customer');

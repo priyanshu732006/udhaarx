@@ -7,7 +7,7 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpenCheck, LogOut, Camera, QrCode } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, LogOut, Camera, QrCode, Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { Html5Qrcode, Html5QrcodeScannerState, Html5QrcodeError, Html5QrcodeResult } from 'html5-qrcode';
 import { useToast } from '@/hooks/use-toast';
@@ -65,7 +65,7 @@ export default function CustomerHistoryPage() {
 
   const startScanner = useCallback(() => {
     if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
+        html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
     }
     const html5QrCode = html5QrCodeRef.current;
     
@@ -125,11 +125,14 @@ export default function CustomerHistoryPage() {
   }, [isScannerVisible, startScanner]);
 
   if (isLoading || !user) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
   
-  const customerTransactions = transactions.filter(t => t.customerId === user.id);
-  const totalUdhaar = customerTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalUdhaar = transactions.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -164,7 +167,7 @@ export default function CustomerHistoryPage() {
             <CardDescription>All your recorded udhaar transactions.</CardDescription>
           </CardHeader>
           <CardContent>
-            {customerTransactions.length > 0 ? (
+            {transactions.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -176,7 +179,7 @@ export default function CustomerHistoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {customerTransactions.map((tx: Transaction) => (
+                    {transactions.map((tx: Transaction) => (
                       <TableRow key={tx.id}>
                         <TableCell className="font-medium">{tx.shopName}</TableCell>
                         <TableCell>{tx.customerMobile}</TableCell>

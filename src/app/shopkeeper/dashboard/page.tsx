@@ -8,14 +8,13 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { QrCode, LogOut, Download } from 'lucide-react';
+import { QrCode, LogOut, Download, Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 
 export default function ShopkeeperDashboard() {
-  const { user, transactions, isLoading, setRole, setUser } = useAppContext();
+  const { user, transactions, isLoading } = useAppContext();
   const router = useRouter();
   const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [shopTransactions, setShopTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -24,24 +23,24 @@ export default function ShopkeeperDashboard() {
       const shopData = JSON.stringify({ id: user.id, name: user.name, address: user.address });
       const encodedData = encodeURIComponent(shopData);
       setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}&qzone=2&format=png`);
-      
-      const filteredTransactions = transactions.filter(t => t.shopId === user.id);
-      setShopTransactions(filteredTransactions);
     }
-  }, [user, isLoading, router, transactions]);
+  }, [user, isLoading, router]);
 
   const handleLogout = async () => {
     if (!auth) return;
     await auth.signOut();
-    // AppContext will handle cleanup
     router.push('/');
   };
 
   if (isLoading || !user) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
   
-  const totalUdhaar = shopTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalUdhaar = transactions.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -89,7 +88,7 @@ export default function ShopkeeperDashboard() {
                 <div>
                   <CardTitle className="font-headline text-2xl">Transaction History</CardTitle>
                   <CardDescription>
-                    You have {shopTransactions.length} transaction(s) from your customers.
+                    You have {transactions.length} transaction(s) from your customers.
                   </CardDescription>
                 </div>
                 <div className="text-right">
@@ -99,7 +98,7 @@ export default function ShopkeeperDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              {shopTransactions.length > 0 ? (
+              {transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                     <Table>
                     <TableHeader>
@@ -111,7 +110,7 @@ export default function ShopkeeperDashboard() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {shopTransactions.map((tx: Transaction) => (
+                        {transactions.map((tx: Transaction) => (
                         <TableRow key={tx.id}>
                             <TableCell className="font-medium">{tx.customerName}</TableCell>
                             <TableCell>{tx.customerMobile}</TableCell>

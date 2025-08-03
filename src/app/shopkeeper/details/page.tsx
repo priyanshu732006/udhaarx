@@ -53,7 +53,7 @@ export default function ShopkeeperDetailsPage() {
         name: shopkeeperDetails.name,
         email: user.email,
         address: shopkeeperDetails.address,
-        mobile: shopkeeperDetails.mobile,
+        mobile: shopkeeperDetails.mobile, // Ensure mobile is saved
       };
       await setUser(shopkeeperData);
       setRole('shopkeeper');

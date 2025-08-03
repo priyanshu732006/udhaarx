@@ -44,41 +44,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthLoading, setAuthLoading] = useState(true);
-  const [isDataLoading, setDataLoading] = useState(true);
 
-  // Listener for auth state changes from Firebase
+  // Auth state listener
   useEffect(() => {
     if (!auth) {
-      setAuthLoading(false);
+      setIsLoading(false);
       return;
     }
     const unsubscribeAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      setFirebaseUser(currentFirebaseUser);
-      const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-      setRoleState(storedRole);
-      
-      if (!currentFirebaseUser) {
+      setIsLoading(true);
+      if (currentFirebaseUser) {
+        setFirebaseUser(currentFirebaseUser);
+        const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+        setRoleState(storedRole);
+      } else {
         // Logged out
+        setFirebaseUser(null);
         setUserState(null);
         setRoleState(null);
+        setTransactions([]);
         localStorage.removeItem('udhaarx-role');
+        setIsLoading(false);
       }
-      setAuthLoading(false);
     });
     return () => unsubscribeAuth();
   }, []);
-  
-  // Listener for user data from firestore, dependent on firebaseUser
+
+  // User data and transaction listener
   useEffect(() => {
-      if(!firebaseUser) {
-          setDataLoading(false);
-          return;
-      }
-      
-      setDataLoading(true);
+    let unsubscribeUser: () => void;
+    let unsubscribeTransactions: () => void;
+
+    if (firebaseUser) {
       const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+      unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
           const userData: User = {
@@ -90,51 +89,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
           };
           setUserState(userData);
         } else {
-          setUserState(null);
+          // This can happen briefly during signup before the user doc is created
+          setUserState(null); 
         }
-        setDataLoading(false);
+        setIsLoading(false);
       }, (error) => {
         console.error("Error fetching user document:", error);
-        setDataLoading(false);
+        setIsLoading(false);
       });
+    }
 
-      return () => unsubscribeUser();
-  }, [firebaseUser]);
-
-  // Listener for transactions that depends on user and role
-  useEffect(() => {
-      if (!db || !user || !role) {
-          setTransactions([]);
-          return;
-      }
-      
+    if (user && role) {
       const transactionsCol = collection(db, 'transactions');
       const field = role === 'customer' ? 'customerId' : 'shopId';
-      
       const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
 
-      const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-          const newTransactions = snapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                  id: doc.id,
-                  ...data,
-                  date: (data.date as Timestamp).toDate().toISOString(),
-              } as Transaction;
-          });
-          setTransactions(newTransactions);
+      unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+        const newTransactions = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: (data.date as Timestamp).toDate().toISOString(),
+          } as Transaction;
+        });
+        setTransactions(newTransactions);
       }, (error) => {
-          console.error("Error fetching transactions:", error);
+        console.error("Error fetching transactions:", error);
       });
+    } else {
+      setTransactions([]);
+    }
 
-      return () => unsubscribeTransactions();
-
-  }, [user, role]);
-  
-  // Combined loading state
-  useEffect(() => {
-    setIsLoading(isAuthLoading || isDataLoading);
-  }, [isAuthLoading, isDataLoading]);
+    return () => {
+      if (unsubscribeUser) unsubscribeUser();
+      if (unsubscribeTransactions) unsubscribeTransactions();
+    };
+  }, [firebaseUser, user?.id, role]);
 
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
@@ -149,6 +140,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setUser = async (newUser: User) => {
     if (newUser && db) {
       try {
+        // Use the user's UID as the document ID
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
         // The onSnapshot listener will automatically update the state
       } catch (error) {
@@ -160,7 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
- const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
     if (!db) {
       console.error("Firestore not initialized");
       throw new Error("Firestore not initialized");
@@ -168,11 +160,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       return addDoc(collection(db, 'transactions'), {
         ...transaction,
-        date: Timestamp.now(), 
+        date: Timestamp.now(),
       });
     } catch (e) {
       console.error("Error adding document: ", e);
-      throw e; 
+      throw e;
     }
   };
 
