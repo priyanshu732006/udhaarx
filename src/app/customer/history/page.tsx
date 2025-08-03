@@ -6,7 +6,8 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpenCheck } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, LogOut } from 'lucide-react';
+import { auth } from '@/lib/firebase';
 
 export default function CustomerHistoryPage() {
   const { user, transactions, isLoading } = useAppContext();
@@ -18,6 +19,13 @@ export default function CustomerHistoryPage() {
     }
   }, [user, isLoading, router]);
 
+  const handleLogout = async () => {
+    if (!auth) return;
+    await auth.signOut();
+    // AppContext will handle cleanup
+    router.push('/');
+  };
+
   if (isLoading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   }
@@ -27,7 +35,7 @@ export default function CustomerHistoryPage() {
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex justify-between items-start mb-8">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={() => router.back()}>
                 <ArrowLeft />
@@ -37,9 +45,14 @@ export default function CustomerHistoryPage() {
                 <p className="text-muted-foreground">Hi {user.name}, here's your transaction history.</p>
             </div>
         </div>
-        <div className="text-right">
-            <p className="text-muted-foreground">Total Udhaar</p>
-            <p className="font-headline text-3xl font-bold text-primary">₹{totalUdhaar.toFixed(2)}</p>
+        <div className="flex flex-col items-end gap-4">
+            <div className="text-right">
+                <p className="text-muted-foreground">Total Udhaar</p>
+                <p className="font-headline text-3xl font-bold text-primary">₹{totalUdhaar.toFixed(2)}</p>
+            </div>
+             <Button variant="outline" onClick={handleLogout} disabled={!auth}>
+              <LogOut className="mr-2 h-4 w-4"/> Logout
+            </Button>
         </div>
       </header>
 
