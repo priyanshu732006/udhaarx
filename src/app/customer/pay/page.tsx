@@ -53,6 +53,9 @@ export default function PayPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      amount: undefined,
+    }
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -92,6 +95,7 @@ export default function PayPage() {
                           placeholder="0.00" 
                           className="text-4xl h-20 pl-10 pr-4 text-center font-headline"
                           {...field}
+                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.value)}
                         />
                       </div>
                     </FormControl>
