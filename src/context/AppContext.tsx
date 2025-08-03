@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore';
 
 type User = {
   id: string; // This will be the Firebase UID
@@ -51,38 +51,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentFirebaseUser) => {
       setIsLoading(true);
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
-      } else {
-        // User logged out
-        setFirebaseUser(null);
-        setUserState(null);
-        setRoleState(null);
-        setTransactions([]);
-        localStorage.removeItem('udhaarx-role');
-        setIsLoading(false);
-      }
-    });
-    return () => unsubscribeAuth();
-  }, []);
+        
+        // Fetch user data from Firestore on auth change
+        const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
 
-  // Listener for user data and transactions once we have a firebaseUser
-  useEffect(() => {
-    if (!db || !firebaseUser) {
-      // If no user, stop loading and clear data
-      if (!firebaseUser) {
-          setIsLoading(false);
-          setUserState(null);
-          setTransactions([]);
-      }
-      return;
-    }
-
-    // We have a firebaseUser, now listen to their document in Firestore
-    const userDocRef = doc(db, 'users', firebaseUser.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
         setRoleState(storedRole);
 
@@ -97,18 +74,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             };
             setUserState(userData);
         } else {
-            // User is authenticated, but we don't have their details in Firestore yet.
-            // This is fine, the details page will call `setUser` to create it.
             setUserState(null);
         }
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching user document:", error);
-        setIsLoading(false);
-    });
 
-    return () => unsubscribeUser();
-  }, [firebaseUser]);
+      } else {
+        // User logged out
+        setFirebaseUser(null);
+        setUserState(null);
+        setRoleState(null);
+        setTransactions([]);
+        localStorage.removeItem('udhaarx-role');
+      }
+      setIsLoading(false);
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
   // Separate listener for transactions that depends on user and role
   useEffect(() => {
@@ -120,8 +100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const transactionsCol = collection(db, 'transactions');
       const field = role === 'customer' ? 'customerId' : 'shopId';
       
-      // We will apply sorting on the client-side to avoid complex composite indexes
-      const q = query(transactionsCol, where(field, '==', user.id));
+      const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
 
       const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
           const newTransactions = snapshot.docs.map(doc => {
@@ -132,8 +111,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   date: (data.date as Timestamp).toDate().toISOString(),
               } as Transaction;
           });
-          // Sort transactions by date descending on the client
-          newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           setTransactions(newTransactions);
       }, (error) => {
           console.error("Error fetching transactions:", error);
@@ -156,7 +133,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setUser = async (newUser: User) => {
     if (newUser && db) {
       try {
-        // Use the user's firebase UID as the document ID
         await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
         setUserState(newUser);
       } catch (error) {
@@ -180,7 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     } catch (e) {
       console.error("Error adding document: ", e);
-      throw e; // Re-throw the error to be caught by the caller
+      throw e; 
     }
   };
 

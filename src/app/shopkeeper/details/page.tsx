@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Shop name must be at least 2 characters.' }),
   address: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
+  mobile: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
 });
 
 type ShopkeeperDetails = z.infer<typeof formSchema>;
@@ -33,6 +34,7 @@ export default function ShopkeeperDetailsPage() {
     defaultValues: {
       name: '',
       address: '',
+      mobile: '',
     },
   });
 
@@ -51,8 +53,9 @@ export default function ShopkeeperDetailsPage() {
         name: shopkeeperDetails.name,
         email: user.email,
         address: shopkeeperDetails.address,
+        mobile: shopkeeperDetails.mobile,
       };
-      setUser(shopkeeperData);
+      await setUser(shopkeeperData);
       setRole('shopkeeper');
       router.push('/shopkeeper/dashboard');
     } catch (error) {
@@ -85,7 +88,7 @@ export default function ShopkeeperDetailsPage() {
                     <Button onClick={handleProceed} className="w-full">
                         <LogIn className="mr-2"/> Proceed to Dashboard
                     </Button>
-                    <Button onClick={() => setUser(null)} className="w-full" variant="outline">
+                    <Button onClick={() => auth.signOut()} className="w-full" variant="outline">
                         Sign in with a different account
                     </Button>
                 </CardContent>
@@ -136,6 +139,19 @@ export default function ShopkeeperDetailsPage() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="mobile"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Your Mobile Number</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="e.g. 9876543210" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" className="w-full">
                   Save and Proceed <ArrowRight className="ml-2" />
                 </Button>
@@ -146,6 +162,7 @@ export default function ShopkeeperDetailsPage() {
                <div className="rounded-md border p-4 text-sm">
                     <p><strong>Shop Name:</strong> {shopkeeperDetails.name}</p>
                     <p><strong>Address:</strong> {shopkeeperDetails.address}</p>
+                    <p><strong>Mobile:</strong> {shopkeeperDetails.mobile}</p>
                </div>
                <Button onClick={handleGoogleSignIn} className="w-full" disabled={isSigningIn || !auth}>
                 {isSigningIn ? (

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   mobile: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
+  address: z.string().min(5, { message: 'Address must be at least 5 characters.' }).optional(),
 });
 
 type CustomerDetails = z.infer<typeof formSchema>;
@@ -33,6 +34,7 @@ export default function CustomerDetailsPage() {
     defaultValues: {
       name: '',
       mobile: '',
+      address: '',
     },
   });
 
@@ -51,8 +53,9 @@ export default function CustomerDetailsPage() {
         name: customerDetails.name,
         email: user.email,
         mobile: customerDetails.mobile,
+        address: customerDetails.address
       };
-      setUser(customerData);
+      await setUser(customerData);
       setRole('customer');
       router.push('/customer/scan');
     } catch (error) {
@@ -85,7 +88,7 @@ export default function CustomerDetailsPage() {
             <Button onClick={handleProceed} className="w-full">
               <LogIn className="mr-2" /> Proceed as Customer
             </Button>
-            <Button onClick={() => setUser(null)} className="w-full" variant="outline">
+            <Button onClick={() => auth.signOut()} className="w-full" variant="outline">
               Sign in with a different account
             </Button>
           </CardContent>
