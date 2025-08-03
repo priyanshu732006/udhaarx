@@ -52,11 +52,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     const unsubscribeAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      setIsLoading(true);
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
-        const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-        setRoleState(storedRole);
       } else {
         // Logged out
         setFirebaseUser(null);
@@ -72,10 +69,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // User data and transaction listener
   useEffect(() => {
-    let unsubscribeUser: () => void;
-    let unsubscribeTransactions: () => void;
-
+    let unsubscribeUser: (() => void) | undefined;
+    let unsubscribeTransactions: (() => void) | undefined;
+  
     if (firebaseUser) {
+      setIsLoading(true);
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         if (userDoc.exists()) {
@@ -88,44 +86,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
             address: data.address,
           };
           setUserState(userData);
+          const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+          setRoleState(storedRole);
         } else {
-          // This can happen briefly during signup before the user doc is created
-          setUserState(null); 
+           // This can happen briefly during signup before the user doc is created
+           // Or when a user is logged in but hasn't completed the details form
+           setUserState(null);
         }
         setIsLoading(false);
       }, (error) => {
         console.error("Error fetching user document:", error);
         setIsLoading(false);
       });
-    }
-
-    if (user && role) {
-      const transactionsCol = collection(db, 'transactions');
-      const field = role === 'customer' ? 'customerId' : 'shopId';
-      const q = query(transactionsCol, where(field, '==', user.id), orderBy('date', 'desc'));
-
-      unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-        const newTransactions = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            date: (data.date as Timestamp).toDate().toISOString(),
-          } as Transaction;
+  
+      const currentRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
+      if (currentRole) {
+        const transactionsCol = collection(db, 'transactions');
+        const field = currentRole === 'customer' ? 'customerId' : 'shopId';
+        const q = query(transactionsCol, where(field, '==', firebaseUser.uid));
+  
+        unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+          const newTransactions = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              date: (data.date as Timestamp).toDate().toISOString(),
+            } as Transaction;
+          });
+          // Sort transactions by date on the client-side
+          newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setTransactions(newTransactions);
+        }, (error) => {
+          console.error("Error fetching transactions:", error);
         });
-        setTransactions(newTransactions);
-      }, (error) => {
-        console.error("Error fetching transactions:", error);
-      });
+      } else {
+        setTransactions([]);
+      }
+  
     } else {
-      setTransactions([]);
+      setIsLoading(false);
     }
-
+  
     return () => {
       if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeTransactions) unsubscribeTransactions();
     };
-  }, [firebaseUser, user?.id, role]);
+  }, [firebaseUser]);
 
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
