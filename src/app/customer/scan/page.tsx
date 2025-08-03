@@ -69,7 +69,8 @@ export default function ScanPage() {
     const html5QrCode = html5QrCodeRef.current;
     
     const startScanner = () => {
-        if(html5QrCode.getState() === Html5QrcodeScannerState.SCANNING) {
+        const scannerState = html5QrCode.getState();
+        if (scannerState === Html5QrcodeScannerState.SCANNING || scannerState === Html5QrcodeScannerState.PAUSED) {
             return;
         }
         html5QrCode.start(
