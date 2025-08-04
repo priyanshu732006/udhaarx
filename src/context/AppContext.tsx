@@ -93,6 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
           setRoleState(storedRole);
         } else {
+           // User doc doesn't exist yet, will be created on details page submission
            setUserState(null);
         }
         // Loading is handled by transaction listener
@@ -157,14 +158,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
      if (newUser && db) {
       try {
         const userRef = doc(db, "users", newUser.id);
-        const userDoc = await getDoc(userRef);
-        if (!userDoc.exists()) {
-          // New user, set initial data with empty authorizedViewers
-          await setDoc(userRef, { ...newUser, authorizedViewers: [] });
-        } else {
-          // Existing user, merge new data but don't overwrite authorizedViewers
-          await setDoc(userRef, newUser, { merge: true });
-        }
+        // Use set with merge to create or update the user document
+        await setDoc(userRef, { ...newUser, authorizedViewers: arrayUnion() }, { merge: true });
       } catch (error) {
         console.error("Error saving user to Firestore:", error);
         throw error;
@@ -175,37 +170,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'date'>) => {
-    if (!db) {
-      console.error("Firestore not initialized");
-      throw new Error("Firestore not initialized");
+    if (!db || !user) {
+      console.error("Firestore not initialized or user not logged in");
+      throw new Error("Firestore not initialized or user not logged in");
     }
     try {
-      // Create new transaction document
-      const newTransaction = await addDoc(collection(db, 'transactions'), {
+      const batch = writeBatch(db);
+
+      // 1. Create new transaction document
+      const newTransactionRef = doc(collection(db, 'transactions'));
+      batch.set(newTransactionRef, {
         ...transaction,
         date: Timestamp.now(),
         settled: false,
       });
 
-      // Update authorization on both user profiles
+      // 2. Update authorization on both user profiles
       const customerRef = doc(db, "users", transaction.customerId);
       const shopkeeperRef = doc(db, "users", transaction.shopId);
 
-      const batch = writeBatch(db);
-      
       // Add shop's UID to customer's authorizedViewers
-      batch.update(customerRef, {
+      // Using set with merge will create the doc if it doesn't exist.
+      batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
-      });
+      }, { merge: true });
       
       // Add customer's UID to shop's authorizedViewers
-      batch.update(shopkeeperRef, {
+      batch.set(shopkeeperRef, {
           authorizedViewers: arrayUnion(transaction.customerId)
-      });
+      }, { merge: true });
       
       await batch.commit();
       
-      return newTransaction;
+      return newTransactionRef;
 
     } catch (e) {
       console.error("Error adding document and updating users: ", e);
