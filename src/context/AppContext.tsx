@@ -190,12 +190,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
-      
-      // 3. Add customer's ID to the shopkeeper's authorizedViewers list
-      const shopkeeperRef = doc(db, "users", transaction.shopId);
-      batch.set(shopkeeperRef, {
-          authorizedViewers: arrayUnion(transaction.customerId)
-      }, { merge: true });
 
       await batch.commit();
       
