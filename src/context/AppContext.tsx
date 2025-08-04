@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc, getDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc, getDoc, writeBatch, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export type User = {
   id: string; // This will be the Firebase UID
@@ -13,10 +13,11 @@ export type User = {
   mobile?: string;
   address?: string;
   upiId?: string;
+  authorizedViewers?: string[];
 } | null;
 
 export type Transaction = {
-  id: string;
+  id:string;
   customerId: string;
   customerName: string;
   customerMobile: string;
@@ -32,7 +33,7 @@ type AppContextType = {
   role: 'customer' | 'shopkeeper' | null;
   setRole: (role: 'customer' | 'shopkeeper' | null) => void;
   user: User;
-  setUser: (user: User) => Promise<void>;
+  setUser: (user: Omit<User, 'authorizedViewers'>) => Promise<void>;
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<any>;
   settleTransactions: (shopId: string) => Promise<void>;
@@ -86,6 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             mobile: data.mobile,
             address: data.address,
             upiId: data.upiId,
+            authorizedViewers: data.authorizedViewers || [],
           };
           setUserState(userData);
           const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
@@ -151,10 +153,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setUser = async (newUser: User) => {
-    if (newUser && db) {
+  const setUser = async (newUser: Omit<User, 'authorizedViewers'>) => {
+     if (newUser && db) {
       try {
-        await setDoc(doc(db, "users", newUser.id), newUser, { merge: true });
+        const userRef = doc(db, "users", newUser.id);
+        const userDoc = await getDoc(userRef);
+        if (!userDoc.exists()) {
+          // New user, set initial data with empty authorizedViewers
+          await setDoc(userRef, { ...newUser, authorizedViewers: [] });
+        } else {
+          // Existing user, merge new data but don't overwrite authorizedViewers
+          await setDoc(userRef, newUser, { merge: true });
+        }
       } catch (error) {
         console.error("Error saving user to Firestore:", error);
         throw error;
@@ -170,13 +180,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       throw new Error("Firestore not initialized");
     }
     try {
-      return addDoc(collection(db, 'transactions'), {
+      // Create new transaction document
+      const newTransaction = await addDoc(collection(db, 'transactions'), {
         ...transaction,
         date: Timestamp.now(),
         settled: false,
       });
+
+      // Update authorization on both user profiles
+      const customerRef = doc(db, "users", transaction.customerId);
+      const shopkeeperRef = doc(db, "users", transaction.shopId);
+
+      const batch = writeBatch(db);
+      
+      // Add shop's UID to customer's authorizedViewers
+      batch.update(customerRef, {
+          authorizedViewers: arrayUnion(transaction.shopId)
+      });
+      
+      // Add customer's UID to shop's authorizedViewers
+      batch.update(shopkeeperRef, {
+          authorizedViewers: arrayUnion(transaction.customerId)
+      });
+      
+      await batch.commit();
+      
+      return newTransaction;
+
     } catch (e) {
-      console.error("Error adding document: ", e);
+      console.error("Error adding document and updating users: ", e);
       throw e;
     }
   };
