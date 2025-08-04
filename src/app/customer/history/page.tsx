@@ -79,7 +79,7 @@ export default function CustomerHistoryPage() {
               fps: 10,
               qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.8);
+                const qrboxSize = Math.max(50, Math.floor(minEdge * 0.8)); // Ensure min size is 50px
                 return { width: qrboxSize, height: qrboxSize };
               },
             },

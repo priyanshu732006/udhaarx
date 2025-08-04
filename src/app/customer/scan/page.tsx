@@ -21,7 +21,7 @@ export default function ScanPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
-  const scannerInitialized = useRef(false);
+  const isScannerInitialized = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -56,11 +56,11 @@ export default function ScanPage() {
   }, []);
 
   useEffect(() => {
-    if (isLoading || !user || typeof window === 'undefined' || scannerInitialized.current) {
+    if (isLoading || !user || typeof window === 'undefined' || isScannerInitialized.current) {
       return;
     }
     
-    scannerInitialized.current = true;
+    isScannerInitialized.current = true;
 
     if (!html5QrCodeRef.current) {
         html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
@@ -78,7 +78,7 @@ export default function ScanPage() {
               fps: 10,
               qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.7);
+                const qrboxSize = Math.max(50, Math.floor(minEdge * 0.7)); // Ensure min size is 50px
                 return { width: qrboxSize, height: qrboxSize };
               },
               aspectRatio: 1.0,
