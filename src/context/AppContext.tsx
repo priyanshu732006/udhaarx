@@ -159,7 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const userRef = doc(db, "users", newUser.id);
         // Use set with merge to create or update the user document
-        await setDoc(userRef, { ...newUser, authorizedViewers: arrayUnion() }, { merge: true });
+        await setDoc(userRef, newUser, { merge: true });
       } catch (error) {
         console.error("Error saving user to Firestore:", error);
         throw error;
@@ -185,17 +185,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         settled: false,
       });
 
-      // 2. Update authorization on both user profiles
+      // 2. Create or update authorization on both user profiles
       const customerRef = doc(db, "users", transaction.customerId);
       const shopkeeperRef = doc(db, "users", transaction.shopId);
 
-      // Add shop's UID to customer's authorizedViewers
-      // Using set with merge will create the doc if it doesn't exist.
+      // Add shop's UID to customer's authorizedViewers using set with merge
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
       
-      // Add customer's UID to shop's authorizedViewers
+      // Add customer's UID to shop's authorizedViewers using set with merge
       batch.set(shopkeeperRef, {
           authorizedViewers: arrayUnion(transaction.customerId)
       }, { merge: true });
