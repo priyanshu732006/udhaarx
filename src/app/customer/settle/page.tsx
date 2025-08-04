@@ -40,6 +40,12 @@ export default function SettleDuesPage() {
       }
 
       const unsettledTxs = transactions.filter(tx => !tx.settled);
+      if (unsettledTxs.length === 0) {
+        setDuesByShop([]);
+        setIsDuesLoading(false);
+        return;
+      }
+      
       const groups: { [key: string]: DuesByShop } = {};
 
       for (const tx of unsettledTxs) {
@@ -51,20 +57,27 @@ export default function SettleDuesPage() {
             totalDue: 0,
             transactionCount: 0,
           };
-          try {
-             const shopDoc = await getDoc(doc(db, 'users', tx.shopId));
-             if(shopDoc.exists()){
-                const shopData = shopDoc.data();
-                groups[tx.shopId].upiId = shopData.upiId;
-             }
-          } catch (e) {
-            console.error("Could not fetch shop details for UPI ID", e);
-          }
         }
         groups[tx.shopId].totalDue += tx.amount;
         groups[tx.shopId].transactionCount += 1;
       }
-      setDuesByShop(Object.values(groups));
+      
+      const duesWithUpi = await Promise.all(
+        Object.values(groups).map(async (shop) => {
+            try {
+             const shopDoc = await getDoc(doc(db, 'users', shop.shopId));
+             if(shopDoc.exists()){
+                const shopData = shopDoc.data();
+                return { ...shop, upiId: shopData.upiId };
+             }
+          } catch (e) {
+            console.error("Could not fetch shop details for UPI ID", e);
+          }
+          return shop;
+        })
+      );
+      
+      setDuesByShop(duesWithUpi);
       setIsDuesLoading(false);
     };
 
