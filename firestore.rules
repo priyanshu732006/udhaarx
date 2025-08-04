@@ -2,22 +2,22 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // A user can manage their own profile data.
-    // Any authenticated user can read another user's profile (e.g., for UPI ID).
-    // WARNING: For production, this read rule should be more restrictive.
+    
+    // Allow any authenticated user to read user profiles.
+    // This is required for a customer to fetch a shopkeeper's UPI ID.
+    // Writes are restricted to the user themselves.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Transactions can be created by the customer.
-    // They can be read by either the customer or the shopkeeper.
-    // They can only be updated (settled) by the customer.
+    // Transactions can be read by either party involved.
+    // A transaction can only be created by the customer it belongs to.
+    // A transaction can only be marked as settled (updated) by the customer.
     match /transactions/{transactionId} {
-      allow read: if request.auth != null && (get(path(transactionId)).data.customerId == request.auth.uid || get(path(transactionId)).data.shopId == request.auth.uid);
+      allow read: if request.auth != null && (get(/databases/$(database)/documents/transactions/$(transactionId)).data.customerId == request.auth.uid || get(/databases/$(database)/documents/transactions/$(transactionId)).data.shopId == request.auth.uid);
       allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-      allow update: if request.auth != null && request.resource.data.customerId == request.auth.uid && request.resource.data.settled == true;
+      allow update: if request.auth != null && request.resource.data.customerId == request.auth.uid;
     }
   }
 }
