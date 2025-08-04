@@ -1,15 +1,31 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { QrCode, LogOut, Download, Loader2 } from 'lucide-react';
+import { QrCode, LogOut, Download, Loader2, Users } from 'lucide-react';
 import { auth } from '@/lib/firebase';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Badge } from '@/components/ui/badge';
+
+type GroupedTransactions = {
+  [customerId: string]: {
+    customerName: string;
+    customerMobile: string;
+    transactions: Transaction[];
+    totalAmount: number;
+  };
+};
 
 export default function ShopkeeperDashboard() {
   const { user, transactions, isLoading } = useAppContext();
@@ -25,6 +41,24 @@ export default function ShopkeeperDashboard() {
       setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}&qzone=2&format=png`);
     }
   }, [user, isLoading, router]);
+  
+  const groupedTransactions = useMemo(() => {
+    return transactions.reduce((acc, tx) => {
+      if (!acc[tx.customerId]) {
+        acc[tx.customerId] = {
+          customerName: tx.customerName,
+          customerMobile: tx.customerMobile,
+          transactions: [],
+          totalAmount: 0,
+        };
+      }
+      acc[tx.customerId].transactions.push(tx);
+      acc[tx.customerId].totalAmount += tx.amount;
+      return acc;
+    }, {} as GroupedTransactions);
+  }, [transactions]);
+  
+  const customerCount = Object.keys(groupedTransactions).length;
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -86,9 +120,9 @@ export default function ShopkeeperDashboard() {
              <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="font-headline text-2xl">Transaction History</CardTitle>
+                  <CardTitle className="font-headline text-2xl flex items-center gap-2"><Users/> Customer Dues</CardTitle>
                   <CardDescription>
-                    You have {transactions.length} transaction(s) from your customers.
+                    You have {transactions.length} total transaction(s) from {customerCount} customer(s).
                   </CardDescription>
                 </div>
                 <div className="text-right">
@@ -99,30 +133,44 @@ export default function ShopkeeperDashboard() {
             </CardHeader>
             <CardContent>
               {transactions.length > 0 ? (
-                <div className="overflow-x-auto">
-                    <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead>Customer ID</TableHead>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead>Mobile</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {transactions.map((tx: Transaction) => (
-                        <TableRow key={tx.id}>
-                            <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
-                            <TableCell className="font-medium">{tx.customerName}</TableCell>
-                            <TableCell>{tx.customerMobile}</TableCell>
-                            <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                    </Table>
-                </div>
+                <Accordion type="single" collapsible className="w-full">
+                  {Object.entries(groupedTransactions).map(([customerId, data]) => (
+                    <AccordionItem value={customerId} key={customerId}>
+                      <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
+                        <div className="flex justify-between items-center w-full">
+                           <div className='text-left'>
+                                <p className="font-semibold text-base">{data.customerName}</p>
+                                <p className="text-sm text-muted-foreground">{data.customerMobile}</p>
+                           </div>
+                           <div className='text-right'>
+                               <p className="font-headline text-lg font-bold text-primary mr-4">₹{data.totalAmount.toFixed(2)}</p>
+                               <Badge variant="secondary">{data.transactions.length} transaction(s)</Badge>
+                           </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-2">
+                         <div className="overflow-x-auto border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {data.transactions.map((tx: Transaction) => (
+                                    <TableRow key={tx.id}>
+                                        <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
+                                        <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                         </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>No transactions yet.</p>
