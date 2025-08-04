@@ -70,16 +70,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     return () => unsubscribeAuth();
   }, []);
-
-  // User data and transaction listener
-  useEffect(() => {
-    let unsubscribeUser: (() => void) | undefined;
-    let unsubscribeTransactions: (() => void) | undefined;
   
+  // Fetch user data when firebaseUser changes
+  useEffect(() => {
     if (firebaseUser) {
       setIsLoading(true);
       const userDocRef = doc(db, 'users', firebaseUser.uid);
-      unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+      const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
           const userData: User = {
@@ -92,52 +89,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
           };
           setUserState(userData);
           const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-          setRoleState(storedRole);
+          setRoleState(storedRole); // This might trigger the next effect
         } else {
            setUserState(null);
         }
-        // Keep loading true until transactions are also loaded
+        // Don't set loading to false here, wait for transactions
       }, (error) => {
         console.error("Error fetching user document:", error);
         setIsLoading(false);
       });
+      return () => unsubscribeUser();
+    }
+  }, [firebaseUser]);
   
-      const currentRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
-      if (currentRole) {
-        const transactionsCol = collection(db, 'transactions');
-        const field = currentRole === 'customer' ? 'customerId' : 'shopId';
-        const q = query(transactionsCol, where(field, '==', firebaseUser.uid));
   
-        unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-          const newTransactions = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              date: (data.date as Timestamp).toDate().toISOString(),
-            } as Transaction;
-          });
-          newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setTransactions(newTransactions);
-          setIsLoading(false); // Set loading to false after transactions are fetched
-        }, (error) => {
-          console.error("Error fetching transactions:", error);
-          setIsLoading(false);
+  // Transaction listener, depends on firebaseUser AND role
+  useEffect(() => {
+    let unsubscribeTransactions: (() => void) | undefined;
+    
+    // Only run if we have a user and a role
+    if (firebaseUser && role) {
+      setIsLoading(true);
+      const transactionsCol = collection(db, 'transactions');
+      const field = role === 'customer' ? 'customerId' : 'shopId';
+      const q = query(transactionsCol, where(field, '==', firebaseUser.uid));
+
+      unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+        const newTransactions = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: (data.date as Timestamp).toDate().toISOString(),
+          } as Transaction;
         });
-      } else {
-        setTransactions([]);
-        setIsLoading(false); // Also set loading to false if there's no role
-      }
-  
-    } else {
+        newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setTransactions(newTransactions);
+        setIsLoading(false); // Set loading to false after transactions are fetched
+      }, (error) => {
+        console.error("Error fetching transactions:", error);
+        setIsLoading(false);
+      });
+
+    } else if (!firebaseUser) {
+      // If user logs out, clear transactions and stop loading
+      setTransactions([]);
       setIsLoading(false);
     }
   
     return () => {
-      if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeTransactions) unsubscribeTransactions();
     };
-  }, [firebaseUser]);
+  }, [firebaseUser, role]); // Rerun this effect if role changes
 
 
   const setRole = (newRole: 'customer' | 'shopkeeper' | null) => {
