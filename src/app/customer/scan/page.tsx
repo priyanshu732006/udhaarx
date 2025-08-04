@@ -30,33 +30,38 @@ export default function ScanPage() {
       router.push('/customer/details');
     }
   }, [user, isLoading, router]);
+  
+  const stopScanner = useCallback(() => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      return html5QrCodeRef.current.stop();
+    }
+    return Promise.resolve();
+  }, []);
 
   const onScanSuccess = useCallback((decodedText: string, result: Html5QrcodeResult) => {
-    if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
-      html5QrCodeRef.current.stop().then(() => {
-        try {
-          const parsedData = JSON.parse(decodedText);
-          if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name || !parsedData.address) {
-              throw new Error("QR code does not contain valid shop data.");
-          }
-          setScanMessage('QR Code detected! Redirecting...');
-          const encodedShopData = encodeURIComponent(decodedText);
-          router.push(`/customer/pay?shop=${encodedShopData}`);
-        } catch (e) {
-          console.error("Invalid QR code format", e);
-          toast({
-            variant: "destructive",
-            title: "Invalid QR Code",
-            description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
-          });
-          // If scan fails, try to start scanner again
-          if (html5QrCodeRef.current) {
-            startScanner(html5QrCodeRef.current);
-          }
+    stopScanner().then(() => {
+      try {
+        const parsedData = JSON.parse(decodedText);
+        if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name || !parsedData.address) {
+            throw new Error("QR code does not contain valid shop data.");
         }
-      }).catch(err => console.error("Failed to stop QR scanner", err));
-    }
-  }, [router, toast]);
+        setScanMessage('QR Code detected! Redirecting...');
+        const encodedShopData = encodeURIComponent(decodedText);
+        router.push(`/customer/pay?shop=${encodedShopData}`);
+      } catch (e) {
+        console.error("Invalid QR code format", e);
+        toast({
+          variant: "destructive",
+          title: "Invalid QR Code",
+          description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
+        });
+        // If scan fails, try to start scanner again
+        if (html5QrCodeRef.current) {
+          startScanner(html5QrCodeRef.current);
+        }
+      }
+    }).catch(err => console.error("Failed to stop QR scanner", err));
+  }, [router, toast, stopScanner]);
   
   const onScanFailure = useCallback((error: Html5QrcodeError) => {
     // This callback is called frequently, so keep it lightweight.
@@ -127,9 +132,7 @@ export default function ScanPage() {
 
     return () => {
       // Cleanup function to stop the scanner when the component unmounts
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().catch(error => console.info("QR scanner failed to stop on unmount.", error));
-      }
+      stopScanner().catch(error => console.info("QR scanner failed to stop on unmount.", error));
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading]);
