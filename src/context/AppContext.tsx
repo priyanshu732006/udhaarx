@@ -190,11 +190,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const shopkeeperRef = doc(db, "users", transaction.shopId);
 
       // Add shop's UID to customer's authorizedViewers using set with merge
+      // This will create the document if it doesn't exist.
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
       
       // Add customer's UID to shop's authorizedViewers using set with merge
+      // This will create the document if it doesn't exist.
       batch.set(shopkeeperRef, {
           authorizedViewers: arrayUnion(transaction.customerId)
       }, { merge: true });

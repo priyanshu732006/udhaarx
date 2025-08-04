@@ -4,21 +4,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // A user can read another user's profile if their UID is in the other user's 'authorizedViewers' list.
-    // They can always read their own profile.
-    // They can only write to their own profile.
+    // Helper function to check for existing transactions
+    function hasTransactedWith(userId1, userId2) {
+      return exists(/databases/$(database)/documents/users/$(userId1)) &&
+             userId2 in get(/databases/$(database)/documents/users/$(userId1)).data.authorizedViewers;
+    }
+
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || (request.auth.uid in resource.data.authorizedViewers);
+      // Allow a user to read their own profile.
+      // Allow a user to read another user's profile if they have transacted with them.
+      allow read: if request.auth.uid == userId ||
+                     (request.auth != null && hasTransactedWith(userId, request.auth.uid));
+
+      // Allow a user to create or update ONLY their own profile.
       allow write: if request.auth.uid == userId;
     }
 
-    // Transactions can be read by the customer or the shopkeeper.
-    // Transactions can only be created by the customer themselves.
-    // Transactions can only be updated (to be marked as settled) by the customer.
+    // Rules for the 'transactions' collection
     match /transactions/{transactionId} {
-      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
+      // Allow a user to create a transaction ONLY IF they are the customer.
       allow create: if request.auth.uid == request.resource.data.customerId;
-      allow update: if request.auth.uid == resource.data.customerId && request.resource.data.settled == true;
+
+      // Allow read access to a transaction for the customer or the shopkeeper involved.
+      allow read: if request.auth.uid == resource.data.customerId ||
+                     request.auth.uid == resource.data.shopId;
+      
+      // Allow the customer to update a transaction to mark it as settled.
+      // Protect other fields from being changed.
+      allow update: if request.auth.uid == resource.data.customerId &&
+                       request.resource.data.settled == true &&
+                       resource.data.settled == false; // Can only change from unsettled to settled
+
+      // Do not allow transactions to be deleted.
       allow delete: if false;
     }
   }
