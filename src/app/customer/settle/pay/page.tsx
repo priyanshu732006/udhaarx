@@ -3,6 +3,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
@@ -109,7 +110,7 @@ export default function SettlePayPage() {
                  <ArrowLeft size={16}/>
             </Button>
             <div className='flex items-center gap-2'>
-                <Image src="/gpay.svg" alt="Google Pay" width={32} height={32} />
+                <Image src="https://placehold.co/100x100.png" data-ai-hint="payment logo" alt="Google Pay" width={32} height={32} />
                 <span className="font-semibold">Google Pay</span>
             </div>
           </div>
