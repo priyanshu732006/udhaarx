@@ -47,7 +47,7 @@ export default function ShopkeeperDashboard() {
       if (!acc[tx.customerId]) {
         acc[tx.customerId] = {
           customerName: tx.customerName,
-          customerMobile: tx.customerMobile,
+          customerMobile: tx.customerMobile || 'N/A',
           transactions: [],
           totalAmount: 0,
         };
@@ -78,7 +78,7 @@ export default function ShopkeeperDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex justify-between items-start sm:items-center mb-8 flex-col sm:flex-row gap-4">
         <div>
           <h1 className="font-headline text-3xl sm:text-4xl font-bold text-primary">Shopkeeper Dashboard</h1>
           <p className="text-muted-foreground">Welcome, {user.name}!</p>
@@ -118,14 +118,14 @@ export default function ShopkeeperDashboard() {
         <div className="lg:col-span-2">
           <Card className="shadow-lg">
              <CardHeader>
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start flex-col sm:flex-row gap-4">
                 <div>
                   <CardTitle className="font-headline text-2xl flex items-center gap-2"><Users/> Customer Dues</CardTitle>
                   <CardDescription>
                     You have {transactions.length} total transaction(s) from {customerCount} customer(s).
                   </CardDescription>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                     <p className="text-muted-foreground">Total Udhaar</p>
                     <p className="font-headline text-3xl font-bold text-primary">₹{totalUdhaar.toFixed(2)}</p>
                 </div>
@@ -153,6 +153,7 @@ export default function ShopkeeperDashboard() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>Customer ID</TableHead>
                                         <TableHead>Date</TableHead>
                                         <TableHead className="text-right">Amount</TableHead>
                                     </TableRow>
@@ -160,6 +161,7 @@ export default function ShopkeeperDashboard() {
                                 <TableBody>
                                     {data.transactions.map((tx: Transaction) => (
                                     <TableRow key={tx.id}>
+                                        <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
                                         <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                                         <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
                                     </TableRow>
