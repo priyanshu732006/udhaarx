@@ -20,8 +20,8 @@ export default function ScanPage() {
   const [scanMessage, setScanMessage] = useState('Position QR code in the frame...');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
-  // Use a ref for the scanner instance to avoid re-renders triggering effects
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const scannerInitialized = useRef(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -30,12 +30,11 @@ export default function ScanPage() {
   }, [user, isLoading, router]);
 
   const onScanSuccess = useCallback((decodedText: string, result: Html5QrcodeResult) => {
-    // Stop the scanner and then process the result
     if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
       html5QrCodeRef.current.stop().then(() => {
         try {
           const parsedData = JSON.parse(decodedText);
-          if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
+          if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name || !parsedData.address) {
               throw new Error("QR code does not contain valid shop data.");
           }
           setScanMessage('QR Code detected! Redirecting...');
@@ -48,20 +47,20 @@ export default function ScanPage() {
             title: "Invalid QR Code",
             description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
           });
-          // Optionally restart scanning after a delay
         }
       }).catch(err => console.error("Failed to stop QR scanner", err));
     }
   }, [router, toast]);
   
   const onScanFailure = useCallback((error: Html5QrcodeError) => {
-    // This is called frequently for non-scans, so we can ignore it to prevent log spam.
   }, []);
 
   useEffect(() => {
-    if (isLoading || !user || typeof window === 'undefined') {
+    if (isLoading || !user || typeof window === 'undefined' || scannerInitialized.current) {
       return;
     }
+    
+    scannerInitialized.current = true;
 
     if (!html5QrCodeRef.current) {
         html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
