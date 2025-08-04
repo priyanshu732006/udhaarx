@@ -1,49 +1,27 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // A user can read another user's profile if they are involved in a transaction together.
-    // This is needed for a customer to get a shopkeeper's UPI ID.
-    function userIsPartyToTransactionWith(otherUserId) {
-      return exists(
-        /databases/$(database)/documents/transactions?where(
-          'customerId', '==', request.auth.uid
-        ).where(
-          'shopId', '==', otherUserId
-        )
-      ) || exists(
-        /databases/$(database)/documents/transactions?where(
-          'shopId', '==', request.auth.uid
-        ).where(
-          'customerId', '==', otherUserId
-        )
-      );
-    }
-    
+
+    // Users can read/write their own profiles.
+    // A user can also read another user's profile if they are a customer
+    // in any transaction with that user (who is the shop).
     match /users/{userId} {
-      // Allow reading own data, or data of another user if a transaction exists between them.
-      allow read: if request.auth != null && (request.auth.uid == userId || userIsPartyToTransactionWith(userId));
-      
-      // Allow writing only to your own user document.
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth.uid == userId ||
+                   (request.auth != null && exists(/databases/$(database)/documents/transactions/{transactionId}) &&
+                    get(/databases/$(database)/documents/transactions/{transactionId}).data.customerId == request.auth.uid &&
+                    get(/databases/$(database)/documents/transactions/{transactionId}).data.shopId == userId);
+      allow write: if request.auth.uid == userId;
     }
 
+    // Transactions can be created by the customer.
+    // They can be read by either the customer or the shopkeeper.
+    // They can only be updated (settled) by the customer.
     match /transactions/{transactionId} {
-      // Allow read/write on transactions where you are the customer or shopkeeper.
-      allow read: if request.auth != null && (resource.data.customerId == request.auth.uid || resource.data.shopId == request.auth.uid);
-      
-      // Allow creating a transaction only if you are the customer.
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-      
-      // Allow updating a transaction (e.g., to settle) only if you are the customer.
-      allow update: if request.auth != null && request.resource.data.customerId == request.auth.uid
-                      && request.resource.data.settled == true
-                      && resource.data.settled == false; // Can only set to true
-
-      // No deletes for now to preserve history.
-      allow delete: if false;
+      allow create: if request.auth.uid == request.resource.data.customerId;
+      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
+      allow update: if request.auth.uid == resource.data.customerId && request.resource.data.settled == true;
+      allow delete: if false; // Transactions should not be deletable
     }
   }
 }
