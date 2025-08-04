@@ -46,7 +46,7 @@ export default function ShopkeeperDashboard() {
     return transactions.reduce((acc, tx) => {
       if (!acc[tx.customerId]) {
         acc[tx.customerId] = {
-          customerName: tx.customerName,
+          customerName: tx.customerName || 'Unknown Customer',
           customerMobile: tx.customerMobile || 'N/A',
           transactions: [],
           totalAmount: 0,
