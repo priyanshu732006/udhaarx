@@ -3,39 +3,46 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Function to check if a user is the customer in any transaction with a specific shop
-    function isUserInTransactionWithShop(userId, shopId) {
-      return exists(
-        /databases/$(database)/documents/transactions?or(
-          and(
-            resource.data.customerId == userId,
-            resource.data.shopId == shopId
-          )
-        )
-      );
+
+    // A function to check if the requesting user and the target user
+    // are linked via any transaction. This is the key to solving the
+    // permission issue securely. It checks both directions (customer-to-shop
+    // and shop-to-customer).
+    function areLinkedByTransaction(requestingUid, targetUid) {
+      // Check if there's a transaction where requester is customer and target is shop
+      let customerToShopQuery = query.collection('transactions')
+                                     .where('customerId', '==', requestingUid)
+                                     .where('shopId', '==', targetUid)
+                                     .limit(1);
+      // Check if there's a transaction where requester is shop and target is customer
+      let shopToCustomerQuery = query.collection('transactions')
+                                     .where('shopId', '==', requestingUid)
+                                     .where('customerId', '==', targetUid)
+                                     .limit(1);
+
+      return firestore.get(customerToShopQuery).size > 0 || firestore.get(shopToCustomerQuery).size > 0;
     }
 
+    // USERS collection
+    // Users can manage their own profile.
+    // They can read another user's profile ONLY IF they are linked by a transaction.
     match /users/{userId} {
-      // Allow read access to a user's own profile
-      // Allow read access to a shop's profile if the requester is a customer with a transaction
-      allow read: if request.auth.uid == userId || isUserInTransactionWithShop(request.auth.uid, userId);
-
-      // Allow write access only to a user's own profile
-      allow write: if request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || areLinkedByTransaction(request.auth.uid, userId));
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // TRANSACTIONS collection
+    // A user can create a transaction only if they are the customer.
+    // They can read a transaction if they are either the customer or the shop.
+    // They can only update the 'settled' field, and only if they are the customer.
     match /transactions/{transactionId} {
-      // Allow read if the user is either the customer or the shopkeeper in the transaction
-      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
-      
-      // Allow create only if the user is the customer creating the transaction for themselves
-      allow create: if request.auth.uid == request.resource.data.customerId;
-      
-      // Allow update only if the user is the customer and is only changing the 'settled' status
-      allow update: if request.auth.uid == resource.data.customerId
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settled'])
-                    && request.resource.data.settled == true;
+      allow read: if request.auth != null && (resource.data.customerId == request.auth.uid || resource.data.shopId == request.auth.uid);
+      allow create: if request.auth != null && request.data.customerId == request.auth.uid;
+      allow update: if request.auth != null &&
+                       request.data.settled == true &&
+                       resource.data.settled == false &&
+                       resource.data.customerId == request.auth.uid &&
+                       request.data.diff(resource.data).affectedKeys().hasOnly(['settled']);
     }
   }
 }
