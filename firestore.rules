@@ -1,24 +1,38 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Users can only read their own profile, or the profile of someone they have transacted with.
-    // Users can only write to their own profile.
+
+    // Helper function to check for existing transactions between two users.
+    function userHasTransactionWith(userId, otherUserId) {
+      return exists(/databases/$(database)/documents/transactions) &&
+             get(/databases/$(database)/documents/transactions).data.values().filter(tx => 
+               (tx.customerId == userId && tx.shopId == otherUserId) || 
+               (tx.customerId == otherUserId && tx.shopId == userId)
+             ).size() > 0;
+    }
+
+    // Users can only read their own profile, or profiles of people they have transacted with.
+    // Anyone can create their own user document.
+    // Users can only update their own profile.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId 
-                    || (request.auth != null && resource.data.authorizedViewers.hasAny([request.auth.uid]));
-      allow write: if request.auth.uid == userId;
+      allow read: if request.auth != null && 
+                  (request.auth.uid == userId ||
+                   (resource.data.authorizedViewers != null && request.auth.uid in resource.data.authorizedViewers));
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; 
     }
 
     // Transactions can be created by the customer.
     // They can be read by either the customer or the shopkeeper involved.
-    // They can be updated (e.g., to settle) by the customer.
+    // They can be updated (e.g., to be marked 'settled') by the customer.
     match /transactions/{transactionId} {
-      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
-      allow create: if request.auth.uid == request.resource.data.customerId;
-      allow update: if request.auth.uid == resource.data.customerId;
+      allow create: if request.auth != null && 
+                     request.auth.uid == request.resource.data.customerId;
+      allow read: if request.auth != null &&
+                   (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
+      allow update: if request.auth != null && request.auth.uid == resource.data.customerId;
       allow delete: if false;
     }
   }
