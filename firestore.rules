@@ -2,26 +2,52 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Users can read/write their own profiles.
-    // A user can also read another user's profile if they are a customer
-    // in any transaction with that user (who is the shop).
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId ||
-                   (request.auth != null && exists(/databases/$(database)/documents/transactions/{transactionId}) &&
-                    get(/databases/$(database)/documents/transactions/{transactionId}).data.customerId == request.auth.uid &&
-                    get(/databases/$(database)/documents/transactions/{transactionId}).data.shopId == userId);
-      allow write: if request.auth.uid == userId;
+    
+    // A function to check if a user is the customer in a given transaction
+    function isCustomer(transactionId) {
+      return get(/databases/$(database)/documents/transactions/$(transactionId)).data.customerId == request.auth.uid;
     }
 
-    // Transactions can be created by the customer.
-    // They can be read by either the customer or the shopkeeper.
-    // They can only be updated (settled) by the customer.
+    // A function to check if a user is involved in a transaction (either as customer or shopkeeper)
+    function isPartyToTransaction(transaction) {
+      return request.auth.uid == transaction.data.customerId || request.auth.uid == transaction.data.shopId;
+    }
+
+    // Rules for the 'users' collection (user profiles)
+    match /users/{userId} {
+      // Allow read access if the user is requesting their own profile,
+      // OR if they are a customer who has a transaction with the shopkeeper (userId) whose profile they are trying to read.
+      allow read: if request.auth.uid == userId ||
+                   exists(
+                     /databases/$(database)/documents/transactions/?where("customerId", "==", request.auth.uid).where("shopId", "==", userId)
+                   );
+
+      // Allow creating a profile only if the user is authenticated and the profile ID matches their auth UID.
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Allow updating a profile only if the user is authenticated and the profile ID matches their auth UID.
+      allow update: if request.auth.uid == userId;
+
+      // Disallow deleting user profiles.
+      allow delete: if false;
+    }
+
+    // Rules for the 'transactions' collection
     match /transactions/{transactionId} {
+      // Allow reading a transaction if the user is either the customer or the shopkeeper.
+      allow read: if request.auth != null && isPartyToTransaction(resource);
+
+      // Allow creating a transaction if the user is the customer listed in the transaction.
       allow create: if request.auth.uid == request.resource.data.customerId;
-      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
-      allow update: if request.auth.uid == resource.data.customerId && request.resource.data.settled == true;
-      allow delete: if false; // Transactions should not be deletable
+
+      // Allow updating a transaction (e.g., to settle it) only if the user is the customer
+      // and they are only changing the 'settled' field to true.
+      allow update: if request.auth.uid == resource.data.customerId &&
+                     request.resource.data.settled == true &&
+                     !('amount' in request.resource.data); // Prevent changing amount
+
+      // Disallow deleting transactions.
+      allow delete: if false;
     }
   }
 }
