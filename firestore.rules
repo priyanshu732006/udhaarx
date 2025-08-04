@@ -3,25 +3,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow users to read a shopkeeper's profile to get UPI info for payment,
-    // only if there's an existing transaction between them.
-    // Users can always read/write their own document.
+    // Function to check if a transaction exists between two users
+    function transactionExists(userId1, userId2) {
+      return exists(/databases/$(database)/documents/transactions?where("customerId", "in", [userId1, userId2])&where("shopId", "in", [userId1, userId2]));
+    }
+
+    // Users can read/write their own data.
+    // They can also read another user's data if a transaction links them.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || 
-                   exists(/databases/$(database)/documents/transactions/{transactionId}) where 
-                   (
-                     (resource.data.shopId == userId && get(/databases/$(database)/documents/transactions/{transactionId}).data.customerId == request.auth.uid) ||
-                     (resource.data.customerId == userId && get(/databases/$(database)/documents/transactions/{transactionId}).data.shopId == request.auth.uid)
-                   );
+      allow read: if request.auth.uid == userId || transactionExists(request.auth.uid, userId);
       allow write: if request.auth.uid == userId;
     }
 
-    // Transactions can be created by authenticated users.
-    // Users can only view their own transactions (as customer or shopkeeper).
-    // Users can only update the 'settled' status on their own transactions.
+    // A user can only create transactions for themselves.
+    // A user can only read transactions where they are either the customer or the shopkeeper.
+    // A customer can update transactions to mark them as settled.
     match /transactions/{transactionId} {
-      allow create: if request.auth != null;
       allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
+      allow create: if request.auth.uid == request.resource.data.customerId;
       allow update: if request.auth.uid == resource.data.customerId && request.resource.data.settled == true;
     }
   }
