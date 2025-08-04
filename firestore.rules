@@ -1,51 +1,33 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if the user is creating a transaction for another user.
-    // This is used to allow the creation/update of user profiles during a transaction.
-    function isCreatingTransactionForUser(userId) {
-      let writes = request.resource.data.writes;
-      // Check if there is a 'create' operation in the batch on the 'transactions' collection
-      let transactionCreate = writes.filter(w => w.path[0] == 'transactions' && w.type == 'create').size() == 1;
-      // Get the shopId from that transaction create operation
-      let transactionData = writes.filter(w => w.path[0] == 'transactions' && w.type == 'create')[0].data;
-      
-      return transactionCreate && 
-             transactionData.customerId == request.auth.uid && 
-             transactionData.shopId == userId;
-    }
-    
-    // Users collection rules
+
+    // Users Collection Rules
+    // A user can:
+    // - Read their own profile.
+    // - Read the profile of another user IF their UID is in the other user's 'authorizedViewers' array.
+    // - Create or update their own profile.
     match /users/{userId} {
-      // Allow read if user is reading their own profile OR
-      // if the user's UID is in the authorizedViewers list of the profile being read.
-      allow read: if request.auth.uid == userId ||
-                     (request.auth.uid in resource.data.authorizedViewers);
-
-      // Allow write (create, update) if user is writing to their own profile OR
-      // if the user is a customer creating a transaction with this shopkeeper.
-      allow write: if request.auth.uid == userId || isCreatingTransactionForUser(userId);
+      allow read: if request.auth.uid == userId || (
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/users/$(userId)).data.authorizedViewers
+      );
+      allow write: if request.auth.uid == userId;
     }
-    
-    // Transactions collection rules
+
+    // Transactions Collection Rules
+    // A user can:
+    // - Create a transaction if they are the customer.
+    // - Read a transaction if they are the customer OR the shopkeeper.
+    // - Update a transaction (to settle it) if they are the customer.
     match /transactions/{transactionId} {
-      // Allow read if the user is either the customer or the shopkeeper in the transaction.
-      allow read: if request.auth.uid == resource.data.customerId || 
-                     request.auth.uid == resource.data.shopId;
-                     
-      // Allow create only if the person creating it is the customer in the transaction.
-      allow create: if request.auth.uid == request.resource.data.customerId;
-
-      // Allow update only if the customer is the one making the change, and
-      // they are only changing the 'settled' field to true.
-      allow update: if request.auth.uid == resource.data.customerId &&
-                       request.resource.data.settled == true &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settled']);
-
-      // Deleting transactions is not allowed.
+      allow create: if request.auth != null && 
+                       request.resource.data.customerId == request.auth.uid;
+      allow read: if request.auth != null &&
+                     (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
+      allow update: if request.auth != null && 
+                       request.auth.uid == resource.data.customerId;
       allow delete: if false;
     }
   }

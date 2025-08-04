@@ -186,14 +186,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       // 2. Add shopkeeper's ID to the customer's authorizedViewers list
-      // This is safe because the user is only writing to their own document.
       const customerRef = doc(db, "users", transaction.customerId);
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
       
-      // We will no longer attempt to write to the shopkeeper's document from the client.
-      // The shopkeeper's read access is handled by the transaction query rule.
+      // 3. Add customer's ID to the shopkeeper's authorizedViewers list
+      const shopkeeperRef = doc(db, "users", transaction.shopId);
+      batch.set(shopkeeperRef, {
+          authorizedViewers: arrayUnion(transaction.customerId)
+      }, { merge: true });
 
       await batch.commit();
       
