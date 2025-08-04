@@ -185,28 +185,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         settled: false,
       });
 
-      // 2. Create or update authorization on both user profiles
+      // 2. Add shopkeeper's ID to the customer's authorizedViewers list
+      // This is safe because the user is only writing to their own document.
       const customerRef = doc(db, "users", transaction.customerId);
-      const shopkeeperRef = doc(db, "users", transaction.shopId);
-
-      // Add shop's UID to customer's authorizedViewers using set with merge
-      // This will create the document if it doesn't exist.
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
       
-      // Add customer's UID to shop's authorizedViewers using set with merge
-      // This will create the document if it doesn't exist.
-      batch.set(shopkeeperRef, {
-          authorizedViewers: arrayUnion(transaction.customerId)
-      }, { merge: true });
-      
+      // We will no longer attempt to write to the shopkeeper's document from the client.
+      // The shopkeeper's read access is handled by the transaction query rule.
+
       await batch.commit();
       
       return newTransactionRef;
 
     } catch (e) {
-      console.error("Error adding document and updating users: ", e);
+      console.error("Error adding document and updating user: ", e);
       throw e;
     }
   };
