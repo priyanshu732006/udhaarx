@@ -42,7 +42,8 @@ export default function ScanPage() {
     stopScanner().then(() => {
       try {
         const parsedData = JSON.parse(decodedText);
-        if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name || !parsedData.address) {
+        // Only require id and name. Address is optional.
+        if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
             throw new Error("QR code does not contain valid shop data.");
         }
         setScanMessage('QR Code detected! Redirecting...');
