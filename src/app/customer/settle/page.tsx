@@ -1,98 +1,49 @@
 
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAppContext, Transaction, User } from '@/context/AppContext';
+import { useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAppContext } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { getDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { ArrowLeft, Loader2, Wallet } from 'lucide-react';
 
-type DuesByShop = {
+type ShopDues = {
   shopId: string;
   shopName: string;
   shopAddress: string;
   totalDue: number;
-  transactionCount: number;
   upiId?: string;
 };
 
 export default function SettleDuesPage() {
-  const { user, transactions, isLoading } = useAppContext();
+  const { user, isLoading } = useAppContext();
   const router = useRouter();
-  const [duesByShop, setDuesByShop] = useState<DuesByShop[]>([]);
-  const [isDuesLoading, setIsDuesLoading] = useState(true);
+  const searchParams = useSearchParams();
+
+  const shop: ShopDues | null = useMemo(() => {
+    const shopDataString = searchParams.get('shop');
+    if (!shopDataString) return null;
+    try {
+      return JSON.parse(decodeURIComponent(shopDataString));
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/customer/details');
+    if (!isLoading && (!user || !shop)) {
+      router.push('/customer/history');
     }
-  }, [user, isLoading, router]);
-  
-  useEffect(() => {
-    const processDues = async () => {
-      if (transactions.length === 0) {
-          setDuesByShop([]);
-          setIsDuesLoading(false);
-          return;
-      }
+  }, [user, isLoading, router, shop]);
 
-      const unsettledTxs = transactions.filter(tx => !tx.settled);
-      if (unsettledTxs.length === 0) {
-        setDuesByShop([]);
-        setIsDuesLoading(false);
-        return;
-      }
-      
-      const groups: { [key: string]: DuesByShop } = {};
+  const handlePayNow = () => {
+    if (!shop) return;
+    const encodedShopData = encodeURIComponent(JSON.stringify(shop));
+    router.push(`/customer/settle/pay?shop=${encodedShopData}`);
+  };
 
-      for (const tx of unsettledTxs) {
-        if (!tx.shopId) continue;
-        if (!groups[tx.shopId]) {
-          groups[tx.shopId] = {
-            shopId: tx.shopId,
-            shopName: tx.shopName,
-            shopAddress: tx.shopAddress || 'N/A',
-            totalDue: 0,
-            transactionCount: 0,
-          };
-        }
-        groups[tx.shopId].totalDue += tx.amount;
-        groups[tx.shopId].transactionCount += 1;
-      }
-      
-      const duesWithUpi = await Promise.all(
-        Object.values(groups).map(async (shop) => {
-            try {
-             const shopDoc = await getDoc(doc(db, 'users', shop.shopId));
-             if(shopDoc.exists()){
-                const shopData = shopDoc.data();
-                return { ...shop, upiId: shopData.upiId };
-             }
-          } catch (e) {
-            console.error("Could not fetch shop details for UPI ID", e);
-          }
-          return shop;
-        })
-      );
-      
-      setDuesByShop(duesWithUpi);
-      setIsDuesLoading(false);
-    };
-
-    if (!isLoading) {
-      processDues();
-    }
-  }, [transactions, isLoading]);
-  
-  const handleSelectShop = (shop: DuesByShop) => {
-     const encodedShopData = encodeURIComponent(JSON.stringify(shop));
-     router.push(`/customer/settle/pay?shop=${encodedShopData}`);
-  }
-
-  if (isLoading || isDuesLoading || !user) {
+  if (isLoading || !user || !shop) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -100,59 +51,38 @@ export default function SettleDuesPage() {
     );
   }
 
-  if (!isDuesLoading && duesByShop.length === 0) {
-      return (
-        <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-             <header className="flex items-center gap-4 mb-8">
-                <Button variant="outline" size="icon" onClick={() => router.push('/customer/history')}>
-                    <ArrowLeft />
-                </Button>
-                <div>
-                    <h1 className="font-headline text-3xl sm:text-4xl font-bold text-primary">All Dues Settled</h1>
-                </div>
-            </header>
-            <Card>
-                <CardContent className="pt-6">
-                    <p className="text-center text-muted-foreground">You have no outstanding udhaar to settle. Great job!</p>
-
-                </CardContent>
-            </Card>
-        </div>
-      )
-  }
-
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <header className="flex items-center gap-4 mb-8">
-         <Button variant="outline" size="icon" onClick={() => router.push('/customer/history')}>
-            <ArrowLeft />
-        </Button>
-        <div>
-            <h1 className="font-headline text-3xl sm:text-4xl font-bold text-primary">Settle Dues</h1>
-            <p className="text-muted-foreground">Select a shop to pay your outstanding udhaar.</p>
-        </div>
-      </header>
-
-      <main className="space-y-4">
-        {duesByShop.map(shop => (
-           <Card key={shop.shopId} className="hover:shadow-lg transition-shadow">
-                <CardContent className="pt-6 flex justify-between items-center">
-                    <div>
-                        <h2 className="font-semibold text-lg">{shop.shopName}</h2>
-                        <p className="text-sm text-muted-foreground">{shop.shopAddress}</p>
-                        <p className="text-sm text-muted-foreground">{shop.transactionCount} transaction(s)</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-headline text-2xl font-bold text-primary">₹{shop.totalDue.toFixed(2)}</p>
-                        <Button size="sm" className="mt-2" onClick={() => handleSelectShop(shop)} disabled={!shop.upiId}>
-                           Pay Now
-                        </Button>
-                        {!shop.upiId && <p className="text-xs text-destructive mt-1">Payments disabled</p>}
-                    </div>
-                </CardContent>
-           </Card>
-        ))}
-      </main>
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-4 mb-4">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => router.back()}>
+              <ArrowLeft size={16}/>
+            </Button>
+            <CardTitle className="font-headline text-3xl text-center flex-1">Settle Due</CardTitle>
+            <div className="w-8"></div>
+          </div>
+        </CardHeader>
+        <CardContent className="text-center space-y-6">
+          <div className="space-y-4">
+              <p className="text-lg text-muted-foreground">
+                You are about to pay your outstanding udhaar to:
+              </p>
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="font-bold text-2xl text-primary">{shop.shopName}</p>
+                <p className="text-muted-foreground">{shop.shopAddress}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Total Amount Due</p>
+                <p className="font-headline text-5xl font-bold">₹{shop.totalDue.toFixed(2)}</p>
+              </div>
+          </div>
+          <Button onClick={handlePayNow} className="w-full" disabled={!shop.upiId}>
+            <Wallet className="mr-2"/> Proceed to Pay
+          </Button>
+          {!shop.upiId && <p className="text-sm text-destructive mt-1">This shop has not enabled online payments.</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
