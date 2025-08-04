@@ -44,6 +44,10 @@ export default function ShopkeeperDashboard() {
   
   const groupedTransactions = useMemo(() => {
     return transactions.reduce((acc, tx) => {
+      // Defensively check for customerId to prevent crashes on bad data
+      if (!tx.customerId) {
+        return acc;
+      }
       if (!acc[tx.customerId]) {
         acc[tx.customerId] = {
           customerName: tx.customerName || 'Unknown Customer',
