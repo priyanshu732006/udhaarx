@@ -19,6 +19,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'Shop name must be at least 2 characters.' }),
   address: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
   mobile: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit mobile number.' }),
+  upiId: z.string().min(3, { message: 'Please enter a valid UPI ID.' }).regex(/@/, { message: 'Please enter a valid UPI ID.'}),
 });
 
 type ShopkeeperDetails = z.infer<typeof formSchema>;
@@ -35,6 +36,7 @@ export default function ShopkeeperDetailsPage() {
       name: '',
       address: '',
       mobile: '',
+      upiId: '',
     },
   });
 
@@ -54,6 +56,7 @@ export default function ShopkeeperDetailsPage() {
         email: user.email,
         address: shopkeeperDetails.address,
         mobile: shopkeeperDetails.mobile,
+        upiId: shopkeeperDetails.upiId,
       };
       await setUser(shopkeeperData);
       setRole('shopkeeper');
@@ -152,6 +155,19 @@ export default function ShopkeeperDetailsPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="upiId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>UPI ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. yourname@okicici" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" className="w-full">
                   Save and Proceed <ArrowRight className="ml-2" />
                 </Button>
@@ -163,6 +179,7 @@ export default function ShopkeeperDetailsPage() {
                     <p><strong>Shop Name:</strong> {shopkeeperDetails.name}</p>
                     <p><strong>Address:</strong> {shopkeeperDetails.address}</p>
                     <p><strong>Mobile:</strong> {shopkeeperDetails.mobile}</p>
+                    <p><strong>UPI ID:</strong> {shopkeeperDetails.upiId}</p>
                </div>
                <Button onClick={handleGoogleSignIn} className="w-full" disabled={isSigningIn || !auth}>
                 {isSigningIn ? (

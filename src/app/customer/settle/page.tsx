@@ -1,12 +1,14 @@
 
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppContext, Transaction } from '@/context/AppContext';
+import { useAppContext, Transaction, User } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type DuesByShop = {
   shopId: string;
@@ -14,11 +16,14 @@ type DuesByShop = {
   shopAddress: string;
   totalDue: number;
   transactionCount: number;
+  upiId?: string;
 };
 
 export default function SettleDuesPage() {
   const { user, transactions, isLoading } = useAppContext();
   const router = useRouter();
+  const [duesByShop, setDuesByShop] = useState<DuesByShop[]>([]);
+  const [isDuesLoading, setIsDuesLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -26,33 +31,54 @@ export default function SettleDuesPage() {
     }
   }, [user, isLoading, router]);
   
-  const duesByShop = useMemo(() => {
-    const unsettledTxs = transactions.filter(tx => !tx.settled);
-    const groups: { [key: string]: DuesByShop } = {};
-
-    unsettledTxs.forEach(tx => {
-      if (!groups[tx.shopId]) {
-        groups[tx.shopId] = {
-          shopId: tx.shopId,
-          shopName: tx.shopName,
-          shopAddress: tx.shopAddress || 'N/A',
-          totalDue: 0,
-          transactionCount: 0,
-        };
+  useEffect(() => {
+    const processDues = async () => {
+      if (transactions.length === 0) {
+          setDuesByShop([]);
+          setIsDuesLoading(false);
+          return;
       }
-      groups[tx.shopId].totalDue += tx.amount;
-      groups[tx.shopId].transactionCount += 1;
-    });
 
-    return Object.values(groups);
-  }, [transactions]);
+      const unsettledTxs = transactions.filter(tx => !tx.settled);
+      const groups: { [key: string]: DuesByShop } = {};
+
+      for (const tx of unsettledTxs) {
+        if (!groups[tx.shopId]) {
+          groups[tx.shopId] = {
+            shopId: tx.shopId,
+            shopName: tx.shopName,
+            shopAddress: tx.shopAddress || 'N/A',
+            totalDue: 0,
+            transactionCount: 0,
+          };
+          try {
+             const shopDoc = await getDoc(doc(db, 'users', tx.shopId));
+             if(shopDoc.exists()){
+                const shopData = shopDoc.data();
+                groups[tx.shopId].upiId = shopData.upiId;
+             }
+          } catch (e) {
+            console.error("Could not fetch shop details for UPI ID", e);
+          }
+        }
+        groups[tx.shopId].totalDue += tx.amount;
+        groups[tx.shopId].transactionCount += 1;
+      }
+      setDuesByShop(Object.values(groups));
+      setIsDuesLoading(false);
+    };
+
+    if (!isLoading) {
+      processDues();
+    }
+  }, [transactions, isLoading]);
   
   const handleSelectShop = (shop: DuesByShop) => {
      const encodedShopData = encodeURIComponent(JSON.stringify(shop));
      router.push(`/customer/settle/pay?shop=${encodedShopData}`);
   }
 
-  if (isLoading || !user) {
+  if (isLoading || isDuesLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -60,7 +86,7 @@ export default function SettleDuesPage() {
     );
   }
 
-  if (!isLoading && duesByShop.length === 0) {
+  if (!isDuesLoading && duesByShop.length === 0) {
       return (
         <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
              <header className="flex items-center gap-4 mb-8">
@@ -103,9 +129,10 @@ export default function SettleDuesPage() {
                     </div>
                     <div className="text-right">
                         <p className="font-headline text-2xl font-bold text-primary">₹{shop.totalDue.toFixed(2)}</p>
-                        <Button size="sm" className="mt-2" onClick={() => handleSelectShop(shop)}>
+                        <Button size="sm" className="mt-2" onClick={() => handleSelectShop(shop)} disabled={!shop.upiId}>
                            Pay Now
                         </Button>
+                        {!shop.upiId && <p className="text-xs text-destructive mt-1">Payments disabled</p>}
                     </div>
                 </CardContent>
            </Card>

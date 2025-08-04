@@ -6,12 +6,13 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, addDoc, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc, getDoc, writeBatch, getDocs } from 'firebase/firestore';
 
-type User = {
+export type User = {
   id: string; // This will be the Firebase UID
   name: string;
   email: string | null;
   mobile?: string;
   address?: string;
+  upiId?: string;
 } | null;
 
 export type Transaction = {
@@ -87,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             email: data.email,
             mobile: data.mobile,
             address: data.address,
+            upiId: data.upiId,
           };
           setUserState(userData);
           const storedRole = localStorage.getItem('udhaarx-role') as 'customer' | 'shopkeeper' | null;
