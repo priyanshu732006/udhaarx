@@ -49,6 +49,7 @@ export default function SettleDuesPage() {
       const groups: { [key: string]: DuesByShop } = {};
 
       for (const tx of unsettledTxs) {
+        if (!tx.shopId) continue;
         if (!groups[tx.shopId]) {
           groups[tx.shopId] = {
             shopId: tx.shopId,
@@ -113,6 +114,7 @@ export default function SettleDuesPage() {
             <Card>
                 <CardContent className="pt-6">
                     <p className="text-center text-muted-foreground">You have no outstanding udhaar to settle. Great job!</p>
+
                 </CardContent>
             </Card>
         </div>
