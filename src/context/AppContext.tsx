@@ -96,7 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
            setUserState(null);
         }
-        setIsLoading(false);
+        // Keep loading true until transactions are also loaded
       }, (error) => {
         console.error("Error fetching user document:", error);
         setIsLoading(false);
@@ -119,11 +119,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
           newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           setTransactions(newTransactions);
+          setIsLoading(false); // Set loading to false after transactions are fetched
         }, (error) => {
           console.error("Error fetching transactions:", error);
+          setIsLoading(false);
         });
       } else {
         setTransactions([]);
+        setIsLoading(false); // Also set loading to false if there's no role
       }
   
     } else {
