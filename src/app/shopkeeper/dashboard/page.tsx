@@ -8,7 +8,7 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { QrCode, LogOut, Download, Loader2, Users } from 'lucide-react';
+import { QrCode, LogOut, Download, Loader2, Users, CheckCircle } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import {
   Accordion,
@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type GroupedTransactions = {
   [customerId: string]: {
@@ -24,6 +25,7 @@ type GroupedTransactions = {
     customerMobile: string;
     transactions: Transaction[];
     totalAmount: number;
+    unsettledAmount: number;
   };
 };
 
@@ -42,9 +44,8 @@ export default function ShopkeeperDashboard() {
     }
   }, [user, isLoading, router]);
   
-  const groupedTransactions = useMemo(() => {
-    return transactions.reduce((acc, tx) => {
-      // Defensively check for customerId to prevent crashes on bad data
+  const { groupedTransactions, totalUdhaar, customerCount } = useMemo(() => {
+    const groups = transactions.reduce((acc, tx) => {
       if (!tx.customerId) {
         return acc;
       }
@@ -54,15 +55,22 @@ export default function ShopkeeperDashboard() {
           customerMobile: tx.customerMobile || 'N/A',
           transactions: [],
           totalAmount: 0,
+          unsettledAmount: 0,
         };
       }
       acc[tx.customerId].transactions.push(tx);
       acc[tx.customerId].totalAmount += tx.amount;
+      if (!tx.settled) {
+        acc[tx.customerId].unsettledAmount += tx.amount;
+      }
       return acc;
     }, {} as GroupedTransactions);
+
+    const total = Object.values(groups).reduce((sum, group) => sum + group.unsettledAmount, 0);
+    const count = Object.keys(groups).length;
+
+    return { groupedTransactions: groups, totalUdhaar: total, customerCount: count };
   }, [transactions]);
-  
-  const customerCount = Object.keys(groupedTransactions).length;
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -78,8 +86,6 @@ export default function ShopkeeperDashboard() {
     );
   }
   
-  const totalUdhaar = transactions.reduce((acc, curr) => acc + curr.amount, 0);
-
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <header className="flex justify-between items-start sm:items-center mb-8 flex-col sm:flex-row gap-4">
@@ -126,7 +132,7 @@ export default function ShopkeeperDashboard() {
                 <div>
                   <CardTitle className="font-headline text-2xl flex items-center gap-2"><Users/> Customer Dues</CardTitle>
                   <CardDescription>
-                    You have {transactions.length} total transaction(s) from {customerCount} customer(s).
+                    You have unsettled dues from {customerCount} customer(s).
                   </CardDescription>
                 </div>
                 <div className="text-left sm:text-right">
@@ -147,7 +153,14 @@ export default function ShopkeeperDashboard() {
                                 <p className="text-sm text-muted-foreground">{data.customerMobile}</p>
                            </div>
                            <div className='text-right'>
-                               <p className="font-headline text-lg font-bold text-primary mr-4">₹{data.totalAmount.toFixed(2)}</p>
+                               {data.unsettledAmount > 0 ? (
+                                  <p className="font-headline text-lg font-bold text-primary mr-4">₹{data.unsettledAmount.toFixed(2)}</p>
+                               ) : (
+                                  <div className="flex items-center gap-2 text-green-600 mr-4">
+                                      <CheckCircle size={20} />
+                                      <span className="font-semibold">Settled</span>
+                                  </div>
+                               )}
                                <Badge variant="secondary">{data.transactions.length} transaction(s)</Badge>
                            </div>
                         </div>
@@ -160,14 +173,18 @@ export default function ShopkeeperDashboard() {
                                         <TableHead>Customer ID</TableHead>
                                         <TableHead>Date</TableHead>
                                         <TableHead className="text-right">Amount</TableHead>
+                                        <TableHead className="text-right">Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {data.transactions.map((tx: Transaction) => (
-                                    <TableRow key={tx.id}>
+                                    <TableRow key={tx.id} className={cn(tx.settled && "text-muted-foreground opacity-60")}>
                                         <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
                                         <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                                         <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">
+                                           {tx.settled ? <Badge variant="outline">Settled</Badge> : <Badge variant="destructive">Unsettled</Badge>}
+                                        </TableCell>
                                     </TableRow>
                                     ))}
                                 </TableBody>

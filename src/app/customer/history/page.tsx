@@ -1,28 +1,22 @@
 
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpenCheck, LogOut, Camera, QrCode, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import { Html5Qrcode, Html5QrcodeScannerState, Html5QrcodeError, Html5QrcodeResult } from 'html5-qrcode';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-const QR_SCANNER_ID = "qr-scanner-region-history";
+import { cn } from '@/lib/utils';
 
 export default function CustomerHistoryPage() {
   const { user, transactions, isLoading } = useAppContext();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [isScannerVisible, setIsScannerVisible] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -36,103 +30,21 @@ export default function CustomerHistoryPage() {
     router.push('/');
   };
 
-  const onScanSuccess = useCallback((decodedText: string, result: Html5QrcodeResult) => {
-    if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
-      html5QrCodeRef.current.stop().then(() => {
-        setIsScannerVisible(false);
-        try {
-          const parsedData = JSON.parse(decodedText);
-          if (typeof parsedData !== 'object' || parsedData === null || !parsedData.id || !parsedData.name) {
-            throw new Error("QR code does not contain valid shop data.");
-          }
-          const encodedShopData = encodeURIComponent(decodedText);
-          router.push(`/customer/pay?shop=${encodedShopData}`);
-        } catch (e) {
-          console.error("Invalid QR code format", e);
-          toast({
-            variant: "destructive",
-            title: "Invalid QR Code",
-            description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
-          });
-        }
-      }).catch(err => console.error("Failed to stop QR scanner", err));
-    }
-  }, [router, toast]);
-
-  const onScanFailure = useCallback((error: Html5QrcodeError) => {
-    // Ignore, this is called frequently
-  }, []);
-
-  const startScanner = useCallback(() => {
-    if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, { verbose: false });
-    }
-    const html5QrCode = html5QrCodeRef.current;
-    
-    const start = () => {
-        if(html5QrCode.getState() === Html5QrcodeScannerState.SCANNING) {
-            return;
-        }
-        html5QrCode.start(
-            { facingMode: "environment" },
-            {
-              fps: 10,
-              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.max(50, Math.floor(minEdge * 0.8)); // Ensure min size is 50px
-                return { width: qrboxSize, height: qrboxSize };
-              },
-            },
-            onScanSuccess,
-            onScanFailure
-        ).catch(err => {
-            console.error("Error starting scanner:", err);
-            setHasCameraPermission(false);
-        });
-    }
-
-    Html5Qrcode.getCameras().then(() => {
-      setHasCameraPermission(true);
-      start();
-    }).catch(err => {
-      console.error("Camera permission error:", err);
-      setHasCameraPermission(false);
-      toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to scan a QR code.',
-          duration: 5000,
-      });
-    });
-  }, [onScanSuccess, onScanFailure, toast]);
-
-  const stopScanner = () => {
-    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-      html5QrCodeRef.current.stop().catch(error => console.info("QR scanner failed to stop.", error));
-    }
-  };
-
-  useEffect(() => {
-    if (isScannerVisible) {
-      startScanner();
-    } else {
-      stopScanner();
-    }
-
-    return () => {
-      stopScanner();
-    };
-  }, [isScannerVisible, startScanner]);
+  const { unsettledTransactions, totalUdhaar } = useMemo(() => {
+    const unsettled = transactions.filter(tx => !tx.settled);
+    const total = unsettled.reduce((acc, curr) => acc + curr.amount, 0);
+    return { unsettledTransactions: unsettled, totalUdhaar: total };
+  }, [transactions]);
+  
+  const hasUnsettledDues = unsettledTransactions.length > 0;
 
   if (isLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
       </div>
     );
   }
-  
-  const totalUdhaar = transactions.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -160,11 +72,18 @@ export default function CustomerHistoryPage() {
       <main className="space-y-8">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="font-headline text-2xl flex items-center gap-2">
-              <BookOpenCheck />
-              Transaction History
-            </CardTitle>
-            <CardDescription>All your recorded udhaar transactions.</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardTitle className="font-headline text-2xl flex items-center gap-2">
+                    <BookOpenCheck />
+                    Transaction History
+                </CardTitle>
+                {hasUnsettledDues && (
+                     <Button onClick={() => router.push('/customer/settle')}>
+                        <Wallet className="mr-2"/> Settle Dues
+                    </Button>
+                )}
+            </div>
+            <CardDescription>All your recorded udhaar transactions. Settled dues are greyed out.</CardDescription>
           </CardHeader>
           <CardContent>
             {transactions.length > 0 ? (
@@ -180,9 +99,9 @@ export default function CustomerHistoryPage() {
                   </TableHeader>
                   <TableBody>
                     {transactions.map((tx: Transaction) => (
-                      <TableRow key={tx.id}>
+                      <TableRow key={tx.id} className={cn(tx.settled && "text-muted-foreground opacity-60")}>
                         <TableCell className="font-medium">{tx.shopName}</TableCell>
-                        <TableCell>{tx.shopAddress}</TableCell>
+                        <TableCell>{tx.shopAddress || 'N/A'}</TableCell>
                         <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
                       </TableRow>
@@ -199,40 +118,21 @@ export default function CustomerHistoryPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg">
+         <Card className="shadow-lg">
           <CardHeader>
              <CardTitle className="font-headline text-2xl flex items-center gap-2">
-                <QrCode />
+                <Camera />
                 Record a New Udhaar
             </CardTitle>
              <CardDescription>Quickly scan another shop's QR code to record a new transaction.</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            {!isScannerVisible ? (
-                 <Button onClick={() => setIsScannerVisible(true)}>
-                    <Camera className="mr-2"/> Scan QR Code
-                </Button>
-            ) : (
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-full max-w-xs rounded-lg overflow-hidden aspect-square bg-slate-100 flex items-center justify-center">
-                      <div id={QR_SCANNER_ID} className="w-full h-full" />
-                       {hasCameraPermission === null && <p className="text-gray-500">Initializing camera...</p> }
-                    </div>
-                     {hasCameraPermission === false && (
-                        <Alert variant="destructive">
-                            <AlertTitle>Camera Access Problem</AlertTitle>
-                            <AlertDescription>
-                                Could not access the camera. Please grant permission in your browser.
-                            </AlertDescription>
-                        </Alert>
-                     )}
-                    <Button variant="outline" onClick={() => setIsScannerVisible(false)}>
-                        Cancel
-                    </Button>
-                </div>
-            )}
+             <Button onClick={() => router.push('/customer/scan')}>
+                <Camera className="mr-2"/> Scan QR Code
+            </Button>
           </CardContent>
         </Card>
+
       </main>
     </div>
   );
