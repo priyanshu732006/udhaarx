@@ -3,49 +3,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is involved in a transaction
-    function isUserInvolvedInTransaction(userId, shopId) {
-      return exists(/databases/$(database)/documents/transactions/{transactionId})
-        && (
-          (
-            resource.data.customerId == userId &&
-            resource.data.shopId == shopId
-          ) || (
-            resource.data.customerId == shopId &&
-            resource.data.shopId == userId
-          )
-        );
+  
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Users can manage their own profile.
-    // They can also read another user's profile if they have a transaction with them.
+    // A user can read another user's profile if a transaction exists between them
+    function isLinked(otherUserId) {
+        return exists(/databases/$(database)/documents/transactions/{transactionId})
+            where 
+                (resource.data.customerId == request.auth.uid && resource.data.shopId == otherUserId) ||
+                (resource.data.shopId == request.auth.uid && resource.data.customerId == otherUserId);
+    }
+    
+    // Users can read/write their own profile
+    // Or can read another user's profile if they are linked by a transaction
     match /users/{userId} {
-      allow read: if request.auth != null && 
-                     (request.auth.uid == userId || 
-                      exists(/databases/$(database)/documents/transactions/{transactionId} where 
-                        get(/databases/$(database)/documents/transactions/{transactionId}).data.customerId == request.auth.uid && get(/databases/$(database)/documents/transactions/{transactionId}).data.shopId == userId ||
-                        get(/databases/$(database)/documents/transactions/{transactionId}).data.shopId == request.auth.uid && get(/databases/$(database)/documents/transactions/{transactionId}).data.customerId == userId
-                      )
-                     );
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSignedIn() && (request.auth.uid == userId || isLinked(userId));
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Transactions can be created by the customer.
-    // They can be read by either the customer or the shopkeeper.
-    // They can be updated (settled) by the customer.
+    // Transactions can be read by the customer or the shopkeeper.
+    // They can be created by the customer.
+    // They can be settled (updated) by the customer.
     match /transactions/{transactionId} {
-      allow read: if request.auth != null && 
-                    (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
-      
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-
-      allow update: if request.auth != null && 
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.customerId;
+      // Allow a customer to update a transaction only to mark it as settled.
+      allow update: if isSignedIn() && 
                       request.auth.uid == resource.data.customerId &&
                       request.resource.data.settled == true &&
-                      resource.data.settled == false; // Can only set to true
-
-      allow delete: if false; // Transactions should not be deleted
+                      resource.data.settled == false;
     }
   }
 }
