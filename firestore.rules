@@ -1,38 +1,33 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check for existing transactions between two users.
-    function userHasTransactionWith(userId, otherUserId) {
-      return exists(/databases/$(database)/documents/transactions) &&
-             get(/databases/$(database)/documents/transactions).data.values().filter(tx => 
-               (tx.customerId == userId && tx.shopId == otherUserId) || 
-               (tx.customerId == otherUserId && tx.shopId == userId)
-             ).size() > 0;
+    
+    // Helper function to check for existing relationship
+    function isAuthorizedViewer(userId) {
+      return request.auth.uid in get(/databases/$(database)/documents/users/$(userId)).data.authorizedViewers;
     }
 
-    // Users can only read their own profile, or profiles of people they have transacted with.
-    // Anyone can create their own user document.
-    // Users can only update their own profile.
     match /users/{userId} {
-      allow read: if request.auth != null && 
-                  (request.auth.uid == userId ||
-                   (resource.data.authorizedViewers != null && request.auth.uid in resource.data.authorizedViewers));
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; 
+      // READ: Allow a user to read their own profile, or the profile of someone they have transacted with.
+      allow read: if request.auth.uid == userId || isAuthorizedViewer(userId);
+      
+      // WRITE (Create, Update): Only the user themselves can write to their own profile.
+      allow write: if request.auth.uid == userId;
     }
 
-    // Transactions can be created by the customer.
-    // They can be read by either the customer or the shopkeeper involved.
-    // They can be updated (e.g., to be marked 'settled') by the customer.
     match /transactions/{transactionId} {
-      allow create: if request.auth != null && 
-                     request.auth.uid == request.resource.data.customerId;
-      allow read: if request.auth != null &&
-                   (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
-      allow update: if request.auth != null && request.auth.uid == resource.data.customerId;
+      // READ: Only the customer or the shopkeeper involved in the transaction can read it.
+      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
+      
+      // CREATE: A logged-in user can create a transaction only if they are the customer.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.customerId;
+      
+      // UPDATE: Only the customer can update their transactions (e.g., to settle them).
+      allow update: if request.auth.uid == resource.data.customerId;
+      
+      // DELETE: Nobody can delete transactions.
       allow delete: if false;
     }
   }
