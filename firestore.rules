@@ -2,23 +2,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read their own profile, and any authenticated user can read any other user profile.
-    // This is simplified to ensure the app can fetch shopkeeper UPI IDs.
-    // In a production app with sensitive user data, this should be more restrictive.
+
+    // User profiles (customers and shopkeepers)
+    // Allow any authenticated user to read any profile (needed for customer to get shopkeeper's UPI ID).
+    // Only allow a user to write to their own profile.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
     }
 
-    // A user can read/write a transaction if they are either the customer or the shopkeeper.
+    // Transactions
+    // Allow a user to read/write a transaction only if they are the customer or the shopkeeper in that transaction.
     match /transactions/{transactionId} {
-      allow read, write: if request.auth != null && 
-        (
-          (exists(path(resource.data.customerId)) && resource.data.customerId == request.auth.uid) || 
-          (exists(path(resource.data.shopId)) && resource.data.shopId == request.auth.uid)
-        );
-      
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
+      allow read, create, update: if request.auth != null && 
+        (request.resource.data.customerId == request.auth.uid || request.resource.data.shopId == request.auth.uid ||
+         (resource != null && (resource.data.customerId == request.auth.uid || resource.data.shopId == request.auth.uid)));
     }
   }
 }
