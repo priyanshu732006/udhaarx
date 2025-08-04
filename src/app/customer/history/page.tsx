@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,14 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 export default function CustomerHistoryPage() {
   const { user, transactions, isLoading } = useAppContext();
   const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && !user) {

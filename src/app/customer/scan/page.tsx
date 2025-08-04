@@ -20,7 +20,9 @@ export default function ScanPage() {
   const [scanMessage, setScanMessage] = useState('Position QR code in the frame...');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
+  // Use a ref to hold the html5QrCode instance
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  // Use a ref to track initialization state to prevent re-initialization
   const isScannerInitialized = useRef(false);
 
   useEffect(() => {
@@ -47,13 +49,42 @@ export default function ScanPage() {
             title: "Invalid QR Code",
             description: "This QR code is not compatible. Please scan a valid UdhaarX QR code.",
           });
+          // If scan fails, try to start scanner again
+          if (html5QrCodeRef.current) {
+            startScanner(html5QrCodeRef.current);
+          }
         }
       }).catch(err => console.error("Failed to stop QR scanner", err));
     }
   }, [router, toast]);
   
   const onScanFailure = useCallback((error: Html5QrcodeError) => {
+    // This callback is called frequently, so keep it lightweight.
+    // It's useful for debugging but often not for user-facing messages.
   }, []);
+
+  const startScanner = (instance: Html5Qrcode) => {
+     if (instance.getState() === Html5QrcodeScannerState.SCANNING) {
+        return;
+     }
+     instance.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.max(50, Math.floor(minEdge * 0.7)); // Enforce min size
+            return { width: qrboxSize, height: qrboxSize };
+          },
+          aspectRatio: 1.0,
+        },
+        onScanSuccess,
+        onScanFailure
+    ).catch(err => {
+        console.error("Error starting scanner:", err);
+        setHasCameraPermission(false);
+    });
+  }
 
   useEffect(() => {
     if (isLoading || !user || typeof window === 'undefined' || isScannerInitialized.current) {
@@ -61,41 +92,15 @@ export default function ScanPage() {
     }
     
     isScannerInitialized.current = true;
-
-    if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(QR_SCANNER_ID, false);
-    }
-    const html5QrCode = html5QrCodeRef.current;
     
-    const startScanner = () => {
-        const scannerState = html5QrCode.getState();
-        if (scannerState === Html5QrcodeScannerState.SCANNING || scannerState === Html5QrcodeScannerState.PAUSED) {
-            return;
-        }
-        html5QrCode.start(
-            { facingMode: "environment" },
-            {
-              fps: 10,
-              qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.max(50, Math.floor(minEdge * 0.7)); // Ensure min size is 50px
-                return { width: qrboxSize, height: qrboxSize };
-              },
-              aspectRatio: 1.0,
-            },
-            onScanSuccess,
-            onScanFailure
-        ).catch(err => {
-            console.error("Error starting scanner:", err);
-            setHasCameraPermission(false);
-        });
-    }
+    const html5QrCode = new Html5Qrcode(QR_SCANNER_ID, false);
+    html5QrCodeRef.current = html5QrCode;
 
     const requestCameraAndStart = async () => {
         try {
             await Html5Qrcode.getCameras();
             setHasCameraPermission(true);
-            startScanner();
+            startScanner(html5QrCode);
         } catch (err: any) {
             console.error("Camera permission error:", err);
             setHasCameraPermission(false);
@@ -121,8 +126,9 @@ export default function ScanPage() {
     requestCameraAndStart();
 
     return () => {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(error => console.info("QR scanner failed to stop on unmount.", error));
+      // Cleanup function to stop the scanner when the component unmounts
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.stop().catch(error => console.info("QR scanner failed to stop on unmount.", error));
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
