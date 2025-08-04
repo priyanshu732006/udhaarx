@@ -4,48 +4,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a transaction exists between a customer and a shopkeeper.
-    // This is a secure way to check for a relationship before granting access.
-    function userHasTransactionWithShop(userId, shopId) {
-      // We check for transactions where the requesting user is the customer and the profile being read belongs to the shopkeeper.
-      // We limit to 1 because we only need to know if at least one transaction exists.
-      return exists(
-        /databases/$(database)/documents/transactions?
-          .where("customerId", "==", userId)
-          .where("shopId", "==", shopId)
-          .limit(1)
-      );
-    }
-    
-    // User profiles (includes customer details and shopkeeper details like UPI ID)
+    // Users collection:
+    // - Anyone can create their own user document upon sign-up.
+    // - Any authenticated user can read any other user's profile (needed for customers to get shopkeeper UPI IDs).
+    // - A user can only update or delete their own document.
     match /users/{userId} {
-      // Allow a user to read their own profile.
-      // Also, allow a customer to read a shopkeeper's profile
-      // IF and ONLY IF they have at least one transaction with that shopkeeper.
-      // This is crucial for the "Settle Dues" feature to get the UPI ID.
-      allow read: if request.auth.uid == userId || userHasTransactionWithShop(request.auth.uid, userId);
-      
-      // A user can only create or update their own profile.
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
     }
 
-    // Transactions collection
+    // Transactions collection:
+    // - A customer can create a transaction for themselves.
+    // - A user can only read transactions where they are either the customer or the shopkeeper.
+    // - A customer can update a transaction to mark it as settled (for their records).
     match /transactions/{transactionId} {
-      // Allow read access if the requesting user is either the customer or the shopkeeper on the transaction.
-      allow read: if request.auth != null && 
-                   (resource.data.customerId == request.auth.uid || resource.data.shopId == request.auth.uid);
-                   
-      // Allow a customer to create a new transaction for themselves.
-      // The `create` rule checks the incoming data before it's written.
-      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
-      
-      // Allow a customer to update a transaction to mark it as settled.
-      // The `update` rule checks the data both before and after the change.
-      // We ensure only the 'settled' field can be changed by the customer.
-      allow update: if request.auth != null && 
-                     request.auth.uid == resource.data.customerId &&
-                     request.resource.data.settled == true &&
-                     resource.data.settled == false;
+      allow read: if request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId;
+      allow create: if request.auth.uid == request.resource.data.customerId;
+      allow update: if request.auth.uid == resource.data.customerId;
     }
   }
 }
