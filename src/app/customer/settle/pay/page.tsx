@@ -6,7 +6,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
+import { CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -27,7 +27,7 @@ export default function SettlePayPage() {
   
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [upiLink, setUpiLink] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   const shop: ShopDues | null = useMemo(() => {
     const shopDataString = searchParams.get('shop');
@@ -44,9 +44,9 @@ export default function SettlePayPage() {
       router.push('/customer/history');
     }
     if (shop?.upiId && shop.totalDue > 0) {
-      const note = encodeURIComponent(`Payment for UdhaarX`);
-      const link = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.shopName)}&am=${shop.totalDue.toFixed(2)}&cu=INR&tn=${note}`;
-      setUpiLink(link);
+      const note = encodeURIComponent(`Payment for Udhaar to ${shop.shopName}`);
+      const upiLink = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.shopName)}&am=${shop.totalDue.toFixed(2)}&cu=INR&tn=${note}`;
+      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiLink)}&qzone=2&format=png`);
     }
   }, [user, shop, router, isLoading]);
 
@@ -110,17 +110,13 @@ export default function SettlePayPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader>
-          <div className="flex items-center justify-between mb-4">
+           <div className="flex items-center gap-4 mb-4">
              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => router.back()}>
                  <ArrowLeft size={16}/>
             </Button>
-            <div className='flex items-center gap-2'>
-                <Image src="https://placehold.co/100x100.png" data-ai-hint="payment logo" alt="UPI" width={32} height={32} />
-                <span className="font-semibold">UPI Payment</span>
-            </div>
-             <div className="w-8"></div>
+            <CardTitle className="font-headline text-3xl text-center flex-1">Pay with UPI</CardTitle>
+            <div className="w-8"></div>
           </div>
-          <CardTitle className="font-headline text-3xl text-center">Pay Shopkeeper</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center justify-center space-y-4">
@@ -143,16 +139,23 @@ export default function SettlePayPage() {
                 <p className="text-sm">This shopkeeper has not set up their UPI ID for payments.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <a href={upiLink} target="_blank" rel="noopener noreferrer" className="w-full">
-                <Button className="w-full h-12 text-lg">
-                    Open UPI App to Pay <ExternalLink className="ml-2"/>
-                </Button>
-              </a>
-              <p className="text-xs text-muted-foreground text-center px-4">
-                After completing the payment in your UPI app, come back and click the button below to confirm.
+            <div className="space-y-4 text-center">
+                <p className="text-sm text-muted-foreground">Scan the QR code with your UPI app to pay.</p>
+                <div className="flex justify-center">
+                    {qrCodeUrl ? (
+                         <div className="p-4 border rounded-lg bg-white">
+                            <Image src={qrCodeUrl} alt="UPI Payment QR Code" width={250} height={250} data-ai-hint="qr code"/>
+                        </div>
+                    ) : (
+                        <div className="w-[250px] h-[250px] bg-gray-200 animate-pulse rounded-lg flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    )}
+                </div>
+              <p className="text-xs text-muted-foreground px-4">
+                After paying, come back and click the button below to confirm and settle your dues.
               </p>
-              <Button onClick={handleConfirmPayment} className="w-full" variant="outline" disabled={isSubmitting}>
+              <Button onClick={handleConfirmPayment} className="w-full" variant="default" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
