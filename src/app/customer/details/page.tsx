@@ -73,7 +73,7 @@ export default function CustomerDetailsPage() {
     if (!auth || !googleProvider) return;
     setIsSigningIn(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
       // Auth state change will be caught by useEffect
     } catch (error) {
       console.error("Google Sign-In Error:", error);
