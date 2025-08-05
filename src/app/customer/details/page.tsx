@@ -124,8 +124,9 @@ export default function CustomerDetailsPage() {
               <LogIn className="mr-2" /> Proceed to App
             </Button>
             <Button onClick={async () => { 
-                await auth.signOut();
+                if (auth) await auth.signOut();
                 // Reset state to show login button again
+                setFirebaseUser(null);
                 setShowDetailsForm(false);
             }} className="w-full" variant="outline">
               Sign in with a different account

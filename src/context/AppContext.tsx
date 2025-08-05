@@ -97,7 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
            // User doc doesn't exist yet, will be created on details page submission
            setUserState(null);
         }
-        // Loading is handled by transaction listener
+        // Loading is handled by transaction listener, so we don't set it to false here.
       }, (error) => {
         console.error("Error fetching user document:", error);
         setIsLoading(false);
@@ -189,15 +189,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // 2. Add shopkeeper's ID to the customer's authorizedViewers list
       const customerRef = doc(db, "users", transaction.customerId);
-      batch.set(customerRef, {
+      batch.update(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
-      }, { merge: true });
+      });
       
       // 3. Add customer's ID to the shopkeeper's authorizedViewers list
       const shopkeeperRef = doc(db, "users", transaction.shopId);
-      batch.set(shopkeeperRef, {
+      batch.update(shopkeeperRef, {
         authorizedViewers: arrayUnion(transaction.customerId)
-      }, { merge: true });
+      });
 
 
       await batch.commit();
