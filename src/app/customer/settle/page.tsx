@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Wallet } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 type ShopDues = {
   shopId: string;
   shopName: string;

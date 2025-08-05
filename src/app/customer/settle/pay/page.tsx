@@ -6,10 +6,10 @@ import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
+
+export const dynamic = 'force-dynamic';
 
 type ShopDues = {
   shopId: string;
@@ -81,7 +81,6 @@ export default function SettlePayPage() {
             </div>
           </div>
           
-          <Separator />
 
           {!shop.upiId ? (
              <div className="text-center text-destructive p-4 bg-destructive/10 rounded-md">

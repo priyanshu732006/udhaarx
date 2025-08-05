@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -17,6 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
+
+export const dynamic = 'force-dynamic';
 
 type ShopData = {
   id: string;
