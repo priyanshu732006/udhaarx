@@ -10,6 +10,8 @@ import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
+export const dynamic = 'force-dynamic';
+
 type ShopData = {
   id: string;
   name: string;
