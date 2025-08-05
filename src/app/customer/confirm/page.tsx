@@ -70,7 +70,7 @@ function ConfirmPageContent() {
       console.error("Failed to add transaction", error);
       let description = "Could not save your udhaar. Please try again.";
       if (error.code === 'permission-denied' || error.code === 'failed-precondition') {
-        description = "You do not have permission to write to the database. Please check your Firestore security rules and indexes.";
+        description = "You do not have permission to write to the database. Please check your Firestore security rules and that you have created the correct indexes.";
       }
       toast({
         variant: "destructive",
