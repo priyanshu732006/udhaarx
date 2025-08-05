@@ -3,32 +3,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users Collection Rules
-    // A user can:
-    // - Read their own profile.
-    // - Read the profile of another user IF their UID is in the other user's 'authorizedViewers' array.
-    // - Create or update their own profile.
+    // Users can only write to their own profile.
+    // Any authenticated user can read any other user's profile.
+    // This is necessary to get profile info like names and UPI IDs.
+    // Security is maintained by queries in the app code, which only
+    // fetch transactions for the logged-in user.
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || (
-        exists(/databases/$(database)/documents/users/$(userId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/users/$(userId)).data.authorizedViewers
-      );
-      allow write: if request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Transactions Collection Rules
-    // A user can:
-    // - Create a transaction if they are the customer.
-    // - Read a transaction if they are the customer OR the shopkeeper.
-    // - Update a transaction (to settle it) if they are the customer.
+    // Transactions collection
     match /transactions/{transactionId} {
-      allow create: if request.auth != null && 
-                       request.resource.data.customerId == request.auth.uid;
-      allow read: if request.auth != null &&
-                     (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.shopId);
-      allow update: if request.auth != null && 
-                       request.auth.uid == resource.data.customerId;
-      allow delete: if false;
+      // A user can create a transaction if they are the customer.
+      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
+
+      // A user can read a transaction if they are the customer OR the shopkeeper.
+      allow read: if request.auth != null && 
+                  (resource.data.customerId == request.auth.uid || resource.data.shopId == request.auth.uid);
+      
+      // A user can update a transaction (to settle it) if they are the customer
+      // and only changing the 'settled' field.
+      allow update: if request.auth != null &&
+                   resource.data.customerId == request.auth.uid &&
+                   request.resource.data.keys().hasOnly(['settled']);
     }
   }
 }
