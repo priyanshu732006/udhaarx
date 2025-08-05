@@ -57,7 +57,7 @@ export default function CustomerHistoryPage() {
             transactionCount: 0,
           };
         }
-        groups[tx.shopId].totalDue += tx.amount;
+        groups[tx.shopId].totalDue += tx.amount || 0;
         groups[tx.shopId].transactionCount += 1;
       }
       
@@ -203,7 +203,7 @@ export default function CustomerHistoryPage() {
                             <TableRow key={tx.id} className={cn(tx.settled && "text-muted-foreground opacity-60")}>
                               <TableCell className="font-medium">{tx.shopName}</TableCell>
                               <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                              <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-medium">₹{(tx.amount || 0).toFixed(2)}</TableCell>
                               <TableCell className="text-right">{tx.settled ? 'Settled' : 'Pending'}</TableCell>
                             </TableRow>
                           ))}
