@@ -91,7 +91,7 @@ export default function CustomerHistoryPage() {
 
   const handlePayNow = (shop: DuesByShop) => {
     const encodedShopData = encodeURIComponent(JSON.stringify(shop));
-    router.push(`/customer/settle/pay?shop=${encodedShopData}`);
+    router.push(`/customer/settle?shop=${encodedShopData}`);
   };
 
   const { totalUdhaar } = useMemo(() => {
