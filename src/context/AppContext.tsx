@@ -125,10 +125,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
       const newTransactions = snapshot.docs.map(doc => {
         const data = doc.data();
+        // Defensive check for date field
+        const date = data.date && typeof data.date.toDate === 'function' 
+          ? data.date.toDate().toISOString()
+          : new Date().toISOString();
+
         return {
           id: doc.id,
           ...data,
-          date: (data.date as Timestamp).toDate().toISOString(),
+          date: date,
         } as Transaction;
       });
       newTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
