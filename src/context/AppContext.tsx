@@ -33,12 +33,13 @@ type AppContextType = {
   role: 'customer' | 'shopkeeper' | null;
   setRole: (role: 'customer' | 'shopkeeper' | null) => void;
   user: User;
-  setUser: (user: Omit<User, 'authorizedViewers'>) => Promise<void>;
+  setUser: (user: Omit<User, 'authorizedViewers'> | User) => Promise<void>;
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<any>;
   settleTransactions: (shopId: string) => Promise<void>;
   isLoading: boolean;
   firebaseUser: FirebaseUser | null;
+  setFirebaseUser: (user: FirebaseUser | null) => void;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -154,12 +155,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setUser = async (newUser: Omit<User, 'authorizedViewers'>) => {
+  const setUser = async (newUser: Omit<User, 'authorizedViewers'> | User) => {
      if (newUser && db) {
       try {
         const userRef = doc(db, "users", newUser.id);
         // Use set with merge to create or update the user document
         await setDoc(userRef, newUser, { merge: true });
+        setUserState(newUser);
       } catch (error) {
         console.error("Error saving user to Firestore:", error);
         throw error;
@@ -190,6 +192,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       batch.set(customerRef, {
           authorizedViewers: arrayUnion(transaction.shopId)
       }, { merge: true });
+      
+      // 3. Add customer's ID to the shopkeeper's authorizedViewers list
+      const shopkeeperRef = doc(db, "users", transaction.shopId);
+      batch.set(shopkeeperRef, {
+        authorizedViewers: arrayUnion(transaction.customerId)
+      }, { merge: true });
+
 
       await batch.commit();
       
@@ -241,6 +250,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     settleTransactions,
     isLoading,
     firebaseUser,
+    setFirebaseUser,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
