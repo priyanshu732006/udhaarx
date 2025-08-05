@@ -7,7 +7,7 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet, Loader2, User } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -119,14 +119,19 @@ export default function CustomerHistoryPage() {
             <p className="text-muted-foreground">Hi {user.name}, here's your udhaar summary.</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-4">
+        <div className="flex flex-col items-end gap-2">
           <div className="text-right">
             <p className="text-muted-foreground">Total Pending</p>
             <p className="font-headline text-3xl font-bold text-primary">₹{totalUdhaar.toFixed(2)}</p>
           </div>
-          <Button variant="outline" onClick={handleLogout} disabled={!auth}>
-            <LogOut className="mr-2 h-4 w-4"/> Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => router.push('/customer/profile')}>
+              <User className="mr-2 h-4 w-4"/> My Profile
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleLogout} disabled={!auth}>
+              <LogOut className="mr-2 h-4 w-4"/> Logout
+            </Button>
+          </div>
         </div>
       </header>
 

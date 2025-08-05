@@ -8,7 +8,7 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { QrCode, LogOut, Download, Loader2, Users, CheckCircle } from 'lucide-react';
+import { QrCode, LogOut, Download, Loader2, Users, CheckCircle, User } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import {
   Accordion,
@@ -93,9 +93,14 @@ export default function ShopkeeperDashboard() {
           <h1 className="font-headline text-3xl sm:text-4xl font-bold text-primary">Shopkeeper Dashboard</h1>
           <p className="text-muted-foreground">Welcome, {user.name}!</p>
         </div>
-        <Button variant="outline" onClick={handleLogout} disabled={!auth}>
-          <LogOut className="mr-2 h-4 w-4"/> Logout
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => router.push('/shopkeeper/profile')}>
+              <User className="mr-2 h-4 w-4"/> My Profile
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleLogout} disabled={!auth}>
+              <LogOut className="mr-2 h-4 w-4"/> Logout
+            </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
