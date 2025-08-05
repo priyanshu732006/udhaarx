@@ -2,7 +2,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -16,10 +16,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet } from 'lucide-react';
+import { Wallet, Loader2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 
-export const dynamic = 'force-dynamic';
 
 type ShopData = {
   id: string;
@@ -31,7 +30,7 @@ const formSchema = z.object({
   amount: z.coerce.number().positive({ message: 'Amount must be greater than 0.' }).multipleOf(0.01),
 });
 
-export default function PayPage() {
+function PayPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [shop, setShop] = useState<ShopData | null>(null);
@@ -67,7 +66,7 @@ export default function PayPage() {
   }
 
   if (isLoading || !shop) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
@@ -117,3 +116,13 @@ export default function PayPage() {
     </div>
   );
 }
+
+
+export default function PayPage() {
+  return (
+     <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+        <PayPageContent />
+    </Suspense>
+  )
+}
+

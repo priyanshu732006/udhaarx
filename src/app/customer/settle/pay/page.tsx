@@ -2,14 +2,12 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-
-export const dynamic = 'force-dynamic';
 
 type ShopDues = {
   shopId: string;
@@ -19,7 +17,7 @@ type ShopDues = {
   upiId?: string;
 };
 
-export default function SettlePayPage() {
+function SettlePayPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAppContext();
@@ -113,4 +111,12 @@ export default function SettlePayPage() {
       </Card>
     </div>
   );
+}
+
+export default function SettlePayPage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            <SettlePayPageContent />
+        </Suspense>
+    )
 }

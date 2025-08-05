@@ -2,7 +2,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, User, Store, Loader2 } from 'lucide-react';
@@ -10,15 +10,13 @@ import { useAppContext } from '@/context/AppContext';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
-export const dynamic = 'force-dynamic';
-
 type ShopData = {
   id: string;
   name: string;
   address: string;
 };
 
-export default function ConfirmPage() {
+function ConfirmPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, addTransaction, isLoading } = useAppContext();
@@ -164,4 +162,13 @@ export default function ConfirmPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function ConfirmPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <ConfirmPageContent />
+    </Suspense>
+  )
 }
