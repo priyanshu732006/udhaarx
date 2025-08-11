@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Wallet } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
+import { PaymentQRCode } from '@/components/PaymentQRCode';
+
 
 type ShopDues = {
   shopId: string;
@@ -79,20 +81,15 @@ function SettlePayPageContent() {
             </div>
           </div>
           
-          {!shop.upiId ? (
+          {!shop.upiId || !upiLink ? (
              <div className="text-center text-destructive p-4 bg-destructive/10 rounded-md">
                 <p className='font-bold'>Payment Unavailable</p>
                 <p className="text-sm">This shopkeeper has not set up their UPI ID for payments.</p>
             </div>
           ) : (
             <div className="space-y-4 text-center">
-                <p className="text-sm text-muted-foreground">Click the button below to pay using your UPI app.</p>
-                
-                <Button asChild className="w-full" size="lg">
-                  <Link href={upiLink}>
-                    <Wallet className="mr-2"/> Pay ₹{shop.totalDue.toFixed(2)} Now
-                  </Link>
-                </Button>
+               
+               <PaymentQRCode upiLink={upiLink} amount={shop.totalDue} />
 
                 <p className="text-xs text-muted-foreground px-4">
                   After paying, your dues will be settled automatically once the shopkeeper confirms the payment.
