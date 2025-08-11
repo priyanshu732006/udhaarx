@@ -6,9 +6,9 @@ import { Suspense, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Wallet } from 'lucide-react';
+import { Loader2, ArrowLeft, Wallet, QrCode } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-import { PaymentQRCode } from '@/components/PaymentQRCode';
+import { QRCodeCanvas } from 'qrcode.react';
 
 
 type ShopDues = {
@@ -88,11 +88,23 @@ function SettlePayPageContent() {
             </div>
           ) : (
             <div className="space-y-4 text-center">
-               
-               <PaymentQRCode upiLink={upiLink} amount={shop.totalDue} />
+                <p className="text-sm text-muted-foreground">Click the button below to pay with your favorite UPI app, or scan the QR code.</p>
+                
+                <Button asChild className="w-full" size="lg">
+                    <Link href={upiLink}>
+                        <Wallet className="mr-2"/> Pay ₹{shop.totalDue.toFixed(2)} Now
+                    </Link>
+                </Button>
 
-                <p className="text-xs text-muted-foreground px-4">
-                  After paying, your dues will be settled automatically once the shopkeeper confirms the payment.
+                <div className="flex flex-col items-center gap-2 pt-4">
+                    <p className="text-xs text-muted-foreground">Or Scan QR Code</p>
+                    <div className="p-4 bg-white rounded-lg border">
+                       <QRCodeCanvas value={upiLink} size={200} />
+                    </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground px-4 pt-4">
+                  After paying, ask the shopkeeper to mark your udhaar as settled. This will be an automatic process in a future update.
                 </p>
                <Button onClick={() => router.push('/customer/history')} className="w-full" variant="outline">
                     Back to My Udhaar
