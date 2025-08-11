@@ -7,11 +7,13 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet, Loader2, User } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, LogOut, Camera, Wallet, Loader2, User, FileDown } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { doc, getDoc } from 'firebase/firestore';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 type DuesByShop = {
   shopId: string;
@@ -82,6 +84,72 @@ export default function CustomerHistoryPage() {
 
     processDues();
   }, [transactions, isLoading]);
+  
+  const handleDownloadPDF = async (shop: DuesByShop) => {
+    const unsettledTxs = transactions.filter(tx => !tx.settled && tx.shopId === shop.shopId);
+    
+    const invoiceElement = document.createElement('div');
+    invoiceElement.style.position = 'absolute';
+    invoiceElement.style.left = '-9999px';
+    invoiceElement.style.width = '800px';
+    invoiceElement.style.padding = '20px';
+    invoiceElement.style.fontFamily = 'sans-serif';
+     invoiceElement.innerHTML = `
+      <div style="border: 1px solid #eee; padding: 20px; font-family: sans-serif;">
+        <h1 style="font-size: 24px; margin-bottom: 0;">Udhaar Statement</h1>
+        <p style="font-size: 14px; color: #666;">Generated on: ${new Date().toLocaleDateString()}</p>
+        <hr style="margin: 20px 0;" />
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+          <div>
+            <h2 style="font-size: 16px; margin-bottom: 5px;">Shop Details</h2>
+            <p style="margin: 0;">${shop.shopName}</p>
+            <p style="margin: 0;">${shop.shopAddress}</p>
+          </div>
+          <div>
+            <h2 style="font-size: 16px; margin-bottom: 5px;">Customer Details</h2>
+            <p style="margin: 0;">${user?.name}</p>
+            <p style="margin: 0;">${user?.mobile}</p>
+          </div>
+        </div>
+        <h2 style="font-size: 16px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Pending Transactions</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="border-bottom: 1px solid #ddd; padding: 8px; text-align: left;">Date</th>
+              <th style="border-bottom: 1px solid #ddd; padding: 8px; text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unsettledTxs.map(tx => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date(tx.date).toLocaleDateString()}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">₹${tx.amount.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Total Due</td>
+              <td style="padding: 8px; font-weight: bold; text-align: right;">₹${shop.totalDue.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+    document.body.appendChild(invoiceElement);
+    
+    const canvas = await html2canvas(invoiceElement, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`udhaar-statement-${shop.shopName.replace(/\s/g, '-')}.pdf`);
+    
+    document.body.removeChild(invoiceElement);
+  };
+
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -161,9 +229,14 @@ export default function CustomerHistoryPage() {
                       </div>
                       <div className="text-right flex flex-col items-end gap-2">
                         <p className="font-headline text-2xl font-bold text-primary">₹{shop.totalDue.toFixed(2)}</p>
-                        <Button size="sm" onClick={() => handlePayNow(shop)} disabled={!shop.upiId}>
-                           Pay Now
-                        </Button>
+                        <div className="flex gap-2">
+                           <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(shop)}>
+                               <FileDown className="mr-2 h-4 w-4"/> PDF
+                           </Button>
+                           <Button size="sm" onClick={() => handlePayNow(shop)} disabled={!shop.upiId}>
+                               Pay Now
+                           </Button>
+                        </div>
                         {!shop.upiId && <p className="text-xs text-destructive mt-1">Payments disabled</p>}
                       </div>
                     </CardContent>

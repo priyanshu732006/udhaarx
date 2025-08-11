@@ -8,7 +8,7 @@ import { useAppContext, Transaction } from '@/context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { QrCode, LogOut, Download, Loader2, Users, CheckCircle, User } from 'lucide-react';
+import { QrCode, LogOut, Download, Loader2, Users, CheckCircle, User, FileDown } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import {
   Accordion,
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/accordion"
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 type GroupedTransactions = {
   [customerId: string]: {
@@ -71,6 +73,83 @@ export default function ShopkeeperDashboard() {
 
     return { groupedTransactions: groups, totalUdhaar: total, customerCount: count };
   }, [transactions]);
+  
+  const handleDownloadPDF = async (customerData: GroupedTransactions[string]) => {
+    const invoiceElement = document.createElement('div');
+    invoiceElement.style.position = 'absolute';
+    invoiceElement.style.left = '-9999px';
+    invoiceElement.style.width = '800px';
+    invoiceElement.style.padding = '20px';
+    invoiceElement.style.fontFamily = 'sans-serif';
+    
+    const settledAmount = customerData.totalAmount - customerData.unsettledAmount;
+
+    invoiceElement.innerHTML = `
+      <div style="border: 1px solid #eee; padding: 20px; font-family: sans-serif;">
+        <h1 style="font-size: 24px; margin-bottom: 0;">Udhaar Statement</h1>
+        <p style="font-size: 14px; color: #666;">Generated on: ${new Date().toLocaleDateString()}</p>
+        <hr style="margin: 20px 0;" />
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+          <div>
+            <h2 style="font-size: 16px; margin-bottom: 5px;">Shop Details</h2>
+            <p style="margin: 0;">${user?.name}</p>
+            <p style="margin: 0;">${user?.address}</p>
+          </div>
+          <div>
+            <h2 style="font-size: 16px; margin-bottom: 5px;">Customer Details</h2>
+            <p style="margin: 0;">${customerData.customerName}</p>
+            <p style="margin: 0;">${customerData.customerMobile}</p>
+          </div>
+        </div>
+        <h2 style="font-size: 16px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Transaction History</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="border-bottom: 1px solid #ddd; padding: 8px; text-align: left;">Date</th>
+              <th style="border-bottom: 1px solid #ddd; padding: 8px; text-align: left;">Status</th>
+              <th style="border-bottom: 1px solid #ddd; padding: 8px; text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${customerData.transactions.map(tx => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date(tx.date).toLocaleDateString()}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${tx.settled ? 'Settled' : 'Unsettled'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">₹${tx.amount.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+             <tr>
+                <td colspan="2" style="padding: 8px; font-weight: bold; text-align: right;">Total Amount:</td>
+                <td style="padding: 8px; font-weight: bold; text-align: right;">₹${customerData.totalAmount.toFixed(2)}</td>
+            </tr>
+             <tr>
+                <td colspan="2" style="padding: 8px; font-weight: bold; text-align: right;">Amount Settled:</td>
+                <td style="padding: 8px; font-weight: bold; text-align: right;">₹${settledAmount.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding: 8px; font-weight: bold; text-align: right;">Pending Amount:</td>
+              <td style="padding: 8px; font-weight: bold; text-align: right;">₹${customerData.unsettledAmount.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+    document.body.appendChild(invoiceElement);
+    
+    const canvas = await html2canvas(invoiceElement, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`udhaar-statement-${customerData.customerName.replace(/\s/g, '-')}.pdf`);
+    
+    document.body.removeChild(invoiceElement);
+  };
+
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -171,29 +250,34 @@ export default function ShopkeeperDashboard() {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="p-2">
-                         <div className="overflow-x-auto border rounded-md">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Customer ID</TableHead>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                        <TableHead className="text-right">Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {data.transactions.map((tx: Transaction) => (
-                                    <TableRow key={tx.id} className={cn(tx.settled && "text-muted-foreground opacity-60")}>
-                                        <TableCell className="font-mono text-xs">{tx.customerId}</TableCell>
-                                        <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                                        <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
-                                        <TableCell className="text-right">
-                                           {tx.settled ? <Badge variant="outline">Settled</Badge> : <Badge variant="destructive">Unsettled</Badge>}
-                                        </TableCell>
-                                    </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                         <div className="p-4 bg-muted/20 rounded-md">
+                             <div className="flex justify-end mb-4">
+                                <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(data)}>
+                                    <FileDown className="mr-2 h-4 w-4" /> Download PDF
+                                </Button>
+                            </div>
+                            <div className="overflow-x-auto border rounded-md">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead className="text-right">Amount</TableHead>
+                                            <TableHead className="text-right">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {data.transactions.map((tx: Transaction) => (
+                                        <TableRow key={tx.id} className={cn("bg-white/5", tx.settled && "text-muted-foreground opacity-60")}>
+                                            <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
+                                            <TableCell className="text-right font-medium">₹{tx.amount.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">
+                                               {tx.settled ? <Badge variant="outline">Settled</Badge> : <Badge variant="destructive">Unsettled</Badge>}
+                                            </TableCell>
+                                        </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                             </div>
                          </div>
                       </AccordionContent>
                     </AccordionItem>
