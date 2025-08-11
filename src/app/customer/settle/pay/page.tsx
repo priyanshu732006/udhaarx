@@ -3,12 +3,11 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState, useMemo } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
-import { QRCodeCanvas } from 'qrcode.react';
-import { cn } from '@/lib/utils';
+import { PaymentHandler } from '@/components/ui/PaymentHandler';
 
 
 type ShopDues = {
@@ -24,8 +23,6 @@ function SettlePayPageContent() {
   const searchParams = useSearchParams();
   const { user, isLoading } = useAppContext();
   
-  const [upiLink, setUpiLink] = useState('');
-
   const shop: ShopDues | null = useMemo(() => {
     const shopDataString = searchParams.get('shop');
     if (!shopDataString) return null;
@@ -40,12 +37,6 @@ function SettlePayPageContent() {
     if (!isLoading && (!user || !shop)) {
       router.push('/customer/history');
       return;
-    }
-    if (shop?.upiId && shop.totalDue > 0) {
-      const note = encodeURIComponent(`Payment for Udhaar to ${shop.shopName}`);
-      const payeeName = encodeURIComponent(shop.shopName);
-      const link = `upi://pay?pa=${shop.upiId}&pn=${payeeName}&am=${shop.totalDue.toFixed(2)}&cu=INR&tn=${note}`;
-      setUpiLink(link);
     }
   }, [user, shop, router, isLoading]);
 
@@ -83,37 +74,17 @@ function SettlePayPageContent() {
             </div>
           </div>
           
-          {shop.upiId && upiLink ? (
-            <div className="space-y-4 text-center">
-                <p className="text-sm text-muted-foreground">Click the button below to pay with your favorite UPI app, or scan the QR code.</p>
-                
-                <a 
-                  href={upiLink} 
-                  className={cn(buttonVariants({ size: 'lg' }), "w-full")}
-                >
-                  <Wallet className="mr-2"/> Pay ₹{shop.totalDue.toFixed(2)} Now
-                </a>
+          <PaymentHandler upiId={shop.upiId} amount={shop.totalDue} payeeName={shop.shopName} />
+          
+          <div className="text-center space-y-4">
+             <p className="text-xs text-muted-foreground px-4 pt-4">
+                After paying, ask the shopkeeper to mark your udhaar as settled. This will be an automatic process in a future update.
+              </p>
+             <Button onClick={() => router.push('/customer/history')} className="w-full" variant="outline">
+                  Back to My Udhaar
+              </Button>
+          </div>
 
-                <div className="flex flex-col items-center gap-2 pt-4">
-                    <p className="text-xs text-muted-foreground">Or Scan QR Code</p>
-                    <div className="p-4 bg-white rounded-lg border">
-                       <QRCodeCanvas value={upiLink} size={200} />
-                    </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground px-4 pt-4">
-                  After paying, ask the shopkeeper to mark your udhaar as settled. This will be an automatic process in a future update.
-                </p>
-               <Button onClick={() => router.push('/customer/history')} className="w-full" variant="outline">
-                    Back to My Udhaar
-                </Button>
-            </div>
-          ) : (
-             <div className="text-center text-destructive p-4 bg-destructive/10 rounded-md">
-                <p className='font-bold'>Payment Unavailable</p>
-                <p className="text-sm">This shopkeeper has not set up their UPI ID for payments.</p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
