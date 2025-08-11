@@ -3,13 +3,12 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Wallet } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { QRCodeCanvas } from 'qrcode.react';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
 
 
 type ShopDues = {
@@ -43,7 +42,8 @@ function SettlePayPageContent() {
     }
     if (shop?.upiId && shop.totalDue > 0) {
       const note = encodeURIComponent(`Payment for Udhaar to ${shop.shopName}`);
-      const link = `upi://pay?pa=${shop.upiId}&pn=${encodeURIComponent(shop.shopName)}&am=${shop.totalDue.toFixed(2)}&cu=INR&tn=${note}`;
+      const payeeName = encodeURIComponent(shop.shopName);
+      const link = `upi://pay?pa=${shop.upiId}&pn=${payeeName}&am=${shop.totalDue.toFixed(2)}&cu=INR&tn=${note}`;
       setUpiLink(link);
     }
   }, [user, shop, router, isLoading]);
