@@ -5,7 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Wallet, Smartphone } from 'lucide-react';
+import { Wallet, Smartphone, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
@@ -21,8 +21,21 @@ export function PaymentQRCode({ upiLink, amount }: PaymentQRCodeProps) {
   // By default, on mobile we show the button, on desktop the QR.
   // We use useEffect to set the initial state to avoid hydration mismatches.
   useEffect(() => {
-    setShowQrCode(!isMobile);
+    // isMobile can be undefined initially, so we wait until it's a boolean
+    if (typeof isMobile === 'boolean') {
+      setShowQrCode(!isMobile);
+    }
   }, [isMobile]);
+
+  // Render a loading state or a default state until isMobile is determined
+  if (isMobile === undefined) {
+    return (
+       <div className="flex flex-col items-center gap-4 justify-center h-64">
+         <Loader2 className="w-8 h-8 animate-spin" />
+         <p className="text-sm text-muted-foreground">Loading payment options...</p>
+       </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
