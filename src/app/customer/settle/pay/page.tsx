@@ -39,6 +39,7 @@ function SettlePayPageContent() {
   useEffect(() => {
     if (!isLoading && (!user || !shop)) {
       router.push('/customer/history');
+      return;
     }
     if (shop?.upiId && shop.totalDue > 0) {
       const note = encodeURIComponent(`Payment for Udhaar to ${shop.shopName}`);
@@ -82,12 +83,7 @@ function SettlePayPageContent() {
             </div>
           </div>
           
-          {!shop.upiId || !upiLink ? (
-             <div className="text-center text-destructive p-4 bg-destructive/10 rounded-md">
-                <p className='font-bold'>Payment Unavailable</p>
-                <p className="text-sm">This shopkeeper has not set up their UPI ID for payments.</p>
-            </div>
-          ) : (
+          {shop.upiId && upiLink ? (
             <div className="space-y-4 text-center">
                 <p className="text-sm text-muted-foreground">Click the button below to pay with your favorite UPI app, or scan the QR code.</p>
                 
@@ -111,6 +107,11 @@ function SettlePayPageContent() {
                <Button onClick={() => router.push('/customer/history')} className="w-full" variant="outline">
                     Back to My Udhaar
                 </Button>
+            </div>
+          ) : (
+             <div className="text-center text-destructive p-4 bg-destructive/10 rounded-md">
+                <p className='font-bold'>Payment Unavailable</p>
+                <p className="text-sm">This shopkeeper has not set up their UPI ID for payments.</p>
             </div>
           )}
         </CardContent>
