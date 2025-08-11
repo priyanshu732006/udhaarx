@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,9 +51,9 @@ export function PaymentHandler({ upiId, amount, payeeName }: PaymentHandlerProps
         
         <a 
           href={upiLink} 
-          className={cn(buttonVariants({ size: 'lg' }), "w-full")}
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 w-full"
         >
-          <Wallet className="mr-2"/> Pay ₹{amount.toFixed(2)} Now
+          <Wallet className="mr-2 h-4 w-4"/> Pay ₹{amount.toFixed(2)} Now
         </a>
 
         <div className="flex flex-col items-center gap-2 pt-4">
