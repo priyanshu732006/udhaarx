@@ -3,12 +3,13 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Wallet, QrCode } from 'lucide-react';
+import { Loader2, ArrowLeft, Wallet } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { QRCodeCanvas } from 'qrcode.react';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 
 
 type ShopDues = {
@@ -90,11 +91,12 @@ function SettlePayPageContent() {
             <div className="space-y-4 text-center">
                 <p className="text-sm text-muted-foreground">Click the button below to pay with your favorite UPI app, or scan the QR code.</p>
                 
-                <Button asChild className="w-full" size="lg">
-                    <Link href={upiLink}>
-                        <Wallet className="mr-2"/> Pay ₹{shop.totalDue.toFixed(2)} Now
-                    </Link>
-                </Button>
+                <a 
+                  href={upiLink} 
+                  className={cn(buttonVariants({ size: 'lg' }), "w-full")}
+                >
+                  <Wallet className="mr-2"/> Pay ₹{shop.totalDue.toFixed(2)} Now
+                </a>
 
                 <div className="flex flex-col items-center gap-2 pt-4">
                     <p className="text-xs text-muted-foreground">Or Scan QR Code</p>
